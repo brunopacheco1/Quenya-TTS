@@ -43,6 +43,13 @@ marked, directly before the stressed vowel, because the text frontend applies
 it to the next phone; a long vowel outside the stressed syllable (the ú of
 únótimë) would carry secondary stress, which is not marked.
 
+Choices made where the sources disagree and Appendix E does not settle the
+matter: archaic or Vanyarin spellings (initial w, z, þ, initial ñ) are read
+with their Third Age sounds rather than as written; plain h between vowels is
+[h] (Appendix E: "h in house, behold"), not the older spirant [x]; ty, ny, ly
+are the single palatal phones rather than consonant + [j]; and the digraphs
+weigh for stress as described above.
+
 Text handling: words are stressed independently; the article i and the
 particles ar, ve, mi are left unstressed. Compounds joined by a hyphen or a
 raised dot (Ambar-metta, ohta·caro) are read as separate words, an apostrophe
