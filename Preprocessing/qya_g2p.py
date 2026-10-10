@@ -2,7 +2,9 @@
 Quenya grapheme-to-phoneme conversion.
 
 Target pronunciation: Third Age Quenya as described in Appendix E of
-The Lord of the Rings.
+The Lord of the Rings. The rules are Quenya-only: Sindarin names in mixed
+text (Elbereth, Thorondor, Lúthien) get the Quenya th -> [s] rule, although
+Sindarin th is [θ], so they should not be used to judge the output.
 
 - Vowels: short a e i o u are [a ɛ i ɔ u]; long á é í ó ú are [aː eː iː oː uː]
   (Appendix E: long é and ó are tenser and closer than the short vowels).
@@ -10,25 +12,42 @@ The Lord of the Rings.
   marks a vowel that is pronounced on its own; it never ends a diphthong.
 - Diphthongs: ai, au, eu, oi, ui (falling), and iu, which Appendix E says was
   usually a rising diphthong [ju] in the Third Age.
-- c and k are [k], qu is [kw], x is [ks], g is [ɡ], y is [j], r is trilled.
-- h is [h], but [ç] in hy, [ʍ] in hw, and before t it is [ç] after e/i and
-  [x] elsewhere (ht as in German echt, acht).
-- hl is [l] (Appendix E: written hl, but normally pronounced l in the Third Age).
-- hr stays [hr]: the articulatory feature table has no voiceless r.
-- th and þ are [s] (the Exiles' pronunciation of þ).
+- c and k are [k], qu (and Tolkien's older spelling q) is [kw], x is [ks],
+  g is [ɡ], y is [j], r is trilled. A stray j is read like y.
+- h is [h], but [ç] in hy, [ʍ] in hw, and before t (also before ty) it is [ç]
+  after e/i and [x] elsewhere (ht as in German echt, acht).
+- hl and hr are [l] and [r]: Appendix E says hl "was in the Third Age usually
+  pronounced as l" and refers hr to the same note ("Cf. L"); Eldamo reads this
+  as both being voiced in Third Age speech.
+- th and þ are [s] (the Exiles' pronunciation of þ: Appendix E, Isil).
+- z, which occurs only in archaic or Vanyarin spellings, is read as [r], the
+  Third Age (Noldorin) development (áze = áre).
 - ty, ny, ly are the palatals [c ɲ ʎ]; other consonant + y is consonant + [j].
+  Appendix E's "t in English tune" fits either [c] or [tj]; Eldamo says the
+  choice barely matters.
 - n is [ŋ] before c/k/qu/g; ng is [ŋɡ], final ng is [ŋ]; ñ is [ŋ]. Initial ñ and
   ng are [n] (Third Age: Ñoldor, ngwalmë are said Noldor, nwalmë).
-- w is [v] at the start of a word or between vowels (Third Age); after a
-  consonant (Elwë, ngw) it stays [w].
+- w is read as written, [w] (Appendix E: "W has the sound of English w"),
+  except at the start of a word, where it is [v] (the Third Age change of
+  wilya to vilya); medially (Elwë, Aiwendil, ngw) it stays [w].
 - Double consonants are written as two phones (ll -> ll).
 
 Stress: words of two syllables are stressed on the first. Longer words are
 stressed on the second-to-last syllable when it is heavy (long vowel,
-diphthong, or followed by two or more consonants, where qu, x, and any
-consonant + y count as two), otherwise on the third-to-last. The stress mark
-is placed directly before the stressed vowel, because the text frontend
-applies it to the next phone.
+diphthong, or followed by two or more consonants), otherwise on the
+third-to-last. Appendix E does not say how the digraphs count; following
+Eldamo ("digraphs like ty and qu are treated as clusters for placement of
+stress"), qu, x, ng and any consonant + y or w (ty ny ly ry hy hw) count as
+two consonants, while hl, hr and th count as one. Only primary stress is
+marked, directly before the stressed vowel, because the text frontend applies
+it to the next phone; a long vowel outside the stressed syllable (the ú of
+únótimë) would carry secondary stress, which is not marked.
+
+Text handling: words are stressed independently; the article i and the
+particles ar, ve, mi are left unstressed. Compounds joined by a hyphen or a
+raised dot (Ambar-metta, ohta·caro) are read as separate words, an apostrophe
+marks elision (tenn' = tenn), and line breaks, dashes and parentheses become
+pauses like a comma.
 """
 
 import re
@@ -58,10 +77,11 @@ for _base, _acute, _circ, _macron, _dieresis in zip('aeiou', 'áéíóú', 'âê
 _CONSONANT_UNITS = [
     ('qu', 'kw', 2),
     ('kw', 'kw', 2),
-    ('hw', 'ʍ', 1),
+    ('q', 'kw', 2),
+    ('hw', 'ʍ', 2),
     ('hy', 'ç', 2),
     ('hl', 'l', 1),
-    ('hr', 'hr', 1),
+    ('hr', 'r', 1),
     ('ty', 'c', 2),
     ('ny', 'ɲ', 2),
     ('ly', 'ʎ', 2),
@@ -78,9 +98,12 @@ _CONSONANT_UNITS = [
 ]
 _SIMPLE_CONSONANTS = set('bdfhjlmnprstvw')
 
-PUNCTUATION_MARKS = ';:,.!?¡¿—…"«»“”~/。【】、‥،؟“”؛'
-_WORD_CHARS = "a-zA-ZÀ-ÿĀ-ſþÞñÑ"
-_TOKEN_RE = re.compile(r"[{w}]+(?:['’][{w}]*)?|[{p}]+".format(w=_WORD_CHARS, p=re.escape(PUNCTUATION_MARKS)))
+PUNCTUATION_MARKS = ';:,.!?¡¿…"“”~/。【】、‥،؟؛'
+# Marks that the text frontend does not know; they become a pause like a comma.
+_PAUSE_MARKS = ('\n', '–', '—', '(', ')', '«', '»')
+# Only the letters Quenya spelling uses; anything else separates words.
+_WORD_CHARS = "a-zA-ZáéíóúâêîôûäëïöüāēīōūÁÉÍÓÚÂÊÎÔÛÄËÏÖÜĀĒĪŌŪþÞñÑ"
+_TOKEN_RE = re.compile(r"[{w}]+(?:['’][{w}]*)*|[{p}]+".format(w=_WORD_CHARS, p=re.escape(PUNCTUATION_MARKS)))
 
 
 def _tokenize_word(word):
@@ -126,7 +149,7 @@ def _apply_context_rules(segments):
         if kind == 'C':
             previous = segments[index - 1] if index > 0 else None
             following = segments[index + 1] if index + 1 < len(segments) else None
-            if phones == 'h' and previous is not None and following is not None and following[1].startswith('t'):
+            if phones == 'h' and previous is not None and following is not None and following[1][:1] in ('t', 'c'):
                 phones = 'ç' if previous[0] == 'V' and previous[1].rstrip('ː')[-1] in 'ɛei' else 'x'
             elif phones == 'n' and following is not None and following[1][:1] in ('k', 'ɡ'):
                 phones = 'ŋ'
@@ -134,7 +157,7 @@ def _apply_context_rules(segments):
                 phones = 'ŋ'
             elif phones in ('ŋ', 'ŋɡ') and previous is None:
                 phones = 'n'
-            elif phones == 'w' and (previous is None or previous[0] == 'V'):
+            elif phones == 'w' and previous is None:
                 phones = 'v'
         result.append((kind, phones, weight))
     return result
@@ -182,21 +205,27 @@ def quenya_to_ipa(word):
 def process_complete_sentence(text):
     """
     Converts a Quenya sentence to IPA. Words are separated by spaces and
-    punctuation is attached to the preceding word. Hyphenated compounds are
-    read as separate words.
+    punctuation is attached to the preceding word. Compounds joined by a
+    hyphen or a raised dot are read as separate words.
     """
-    text = unicodedata.normalize('NFC', text).replace('-', ' ')
+    text = unicodedata.normalize('NFC', text)
+    for mark in _PAUSE_MARKS:
+        text = text.replace(mark, ', ')
+    text = re.sub(r'(?:,\s*){2,}', ', ', text)
+    for joiner in ('-', '‐', '·'):
+        text = text.replace(joiner, ' ')
     processed_parts = []
     for part in _TOKEN_RE.findall(text.strip()):
         if part[0] in PUNCTUATION_MARKS:
             processed_parts.append(part)
-        else:
+        elif any(char in _VOWEL_LETTERS for char in part.lower()):
             stressed = part.lower().strip("'’") not in UNSTRESSED_WORDS
             processed_parts.append(quenya_word_to_ipa(part, stressed=stressed))
+        # a token without a vowel (a stray q, an initial) is not a Quenya word and is skipped
 
     processed_text = ''
     for i, part in enumerate(processed_parts):
         processed_text += part
         if i + 1 < len(processed_parts) and processed_parts[i + 1][0] not in PUNCTUATION_MARKS:
             processed_text += ' '
-    return processed_text
+    return processed_text.strip(', ')
