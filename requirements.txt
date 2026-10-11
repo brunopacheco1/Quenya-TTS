@@ -1,6 +1,9 @@
 # IMS-Toucan's requirements (toucan/requirements.txt), with one change: its huggingface-hub~=0.25.2 pin
 # conflicts with gradio 5.23 (needs >=0.28.1), so pip cannot install the original file.
 # Keep in step with toucan/requirements.txt when the submodule is updated.
+# setuptools is added because librosa 0.9 and phonemizer import pkg_resources, which setuptools 70+ no
+# longer installs by default.
+setuptools<70
 torch~=2.4.0
 torchaudio~=2.4.0
 torch_complex~=0.4.3
