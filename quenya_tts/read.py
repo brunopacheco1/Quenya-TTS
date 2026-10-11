@@ -27,6 +27,9 @@ def main():
     parser.add_argument("--speaker", default=None, help="a WAV file whose voice the model should imitate")
     parser.add_argument("--speed", type=float, default=1.0, help="duration scaling: above 1 is slower, below 1 faster")
     parser.add_argument("--device", default="cpu", help="cpu, cuda or mps")
+    parser.add_argument("--padding", type=float, default=0.3,
+                        help="seconds of silence at the start and end of the file (many players and Bluetooth "
+                             "headphones swallow the first moments of a file, which cuts off the first syllable)")
     parser.add_argument("--phonemes", action="store_true", help="only print the phonemes and exit")
     args = parser.parse_args()
 
@@ -59,13 +62,15 @@ def main():
     if speaker:
         tts.set_utterance_embedding(speaker)
 
-    # the same loop as ToucanTTSInterface.read_to_file, but with phonemes as input
-    silence = torch.zeros([400])
-    wav = silence.clone()
+    # the same loop as ToucanTTSInterface.read_to_file, but with phonemes as input and longer silence at both ends
     sr = 24000
+    padding = torch.zeros([int(args.padding * sr)])
+    silence = torch.zeros([400])
+    wav = padding.clone()
     for line in lines:
         spoken, sr = tts(phonemize(line), input_is_phones=True, duration_scaling_factor=args.speed, prosody_creativity=0.0)
         wav = torch.cat((wav, torch.tensor(spoken).cpu(), silence), 0)
+    wav = torch.cat((wav, padding), 0)
     os.makedirs(os.path.dirname(output), exist_ok=True)
     soundfile.write(file=output, data=float2pcm(wav), samplerate=sr, subtype="PCM_16")
     print(f"Saved {args.output}")
