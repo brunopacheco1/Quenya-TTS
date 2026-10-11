@@ -62,10 +62,12 @@ I would like to express my deepest gratitude to my supervisor, Ph.D. Candidate P
 
 ### Experiment
 
-Based on the tutorial from the original repository, I have added Quenya language (qya) support in the `Preprocessing/TextFrontend.py` (of the Toucan copy used at the time) file and created the Quenya language G2P script, which is also located in the `Preprocessing` directory. The specific steps are as follows:
+_The thesis worked in a modified copy of an older Toucan, so the paths below refer to that copy, which is in the git history._
+
+Based on the tutorial from the original repository, I have added Quenya language (qya) support in the `Preprocessing/TextFrontend.py` file and created the Quenya language G2P script, which is also located in the `Preprocessing` directory. The specific steps are as follows:
 
 1. **Adding Quenya Language Support**:
-    - Added support for the Quenya language in the `Preprocessing/TextFrontend.py` (of the Toucan copy used at the time) file.
+    - Added support for the Quenya language in the `Preprocessing/TextFrontend.py` file.
     - Ensured the new language code (qya) correctly handles the special characters and phonetic rules of the Quenya language.
 
 2. **Creating Quenya G2P Script**:
