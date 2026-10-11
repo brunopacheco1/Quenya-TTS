@@ -18,6 +18,28 @@ import os
 from quenya_g2p import to_ipa
 
 
+FRAME_SECONDS = 384 / 24000  # one spectrogram frame of the ToucanTTS vocoder
+
+
+def synthesize(tts, phones, speed=1.0, lead_seconds=0.15):
+    """
+    Speaks a Toucan phoneme string with a real pause before the first sound.
+
+    Toucan always shortens the opening pause to a single frame, so the speech starts at once and the first
+    syllable comes out clipped. Here a second pause symbol follows the opening one, the durations are
+    predicted once, that second pause is set to lead_seconds, and the sentence is spoken again with those
+    durations. With prosody_creativity=0 both runs predict the same pitch and energy.
+    """
+    if lead_seconds <= 0:
+        return tts(phones, input_is_phones=True, duration_scaling_factor=speed, prosody_creativity=0.0)
+    phones = "~" + phones if phones.startswith("~") else "~~" + phones
+    _, _, durations, _ = tts(phones, input_is_phones=True, duration_scaling_factor=speed, prosody_creativity=0.0,
+                             return_everything=True)
+    durations = durations.squeeze(0).clone()
+    durations[1] = max(int(durations[1]), round(lead_seconds / FRAME_SECONDS))
+    return tts(phones, input_is_phones=True, durations=durations, prosody_creativity=0.0)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Read Quenya text aloud with IMS-Toucan.")
     parser.add_argument("text", nargs="?", help="Quenya text to read")
@@ -27,6 +49,9 @@ def main():
     parser.add_argument("--speaker", default=None, help="a WAV file whose voice the model should imitate")
     parser.add_argument("--speed", type=float, default=1.0, help="duration scaling: above 1 is slower, below 1 faster")
     parser.add_argument("--device", default="cpu", help="cpu, cuda or mps")
+    parser.add_argument("--lead", type=float, default=0.15,
+                        help="seconds of pause the model speaks before the first sound (Toucan otherwise starts "
+                             "speaking at once, which clips the first syllable)")
     parser.add_argument("--padding", type=float, default=0.3,
                         help="seconds of silence at the start and end of the file (many players and Bluetooth "
                              "headphones swallow the first moments of a file, which cuts off the first syllable)")
@@ -68,7 +93,7 @@ def main():
     silence = torch.zeros([400])
     wav = padding.clone()
     for line in lines:
-        spoken, sr = tts(phonemize(line), input_is_phones=True, duration_scaling_factor=args.speed, prosody_creativity=0.0)
+        spoken, sr = synthesize(tts, phonemize(line), speed=args.speed, lead_seconds=args.lead)
         wav = torch.cat((wav, torch.tensor(spoken).cpu(), silence), 0)
     wav = torch.cat((wav, padding), 0)
     os.makedirs(os.path.dirname(output), exist_ok=True)
