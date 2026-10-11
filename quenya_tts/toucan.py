@@ -47,7 +47,13 @@ class QuenyaPhonemizer:
 
     def __call__(self, text):
         from quenya_g2p import to_ipa
-        return self.frontend.postprocess_phoneme_string(to_ipa(text),
+        ipa = to_ipa(text).rstrip(" ,;:")
+        if not ipa.endswith((".", "!", "?")):
+            # Toucan copies the pitch and energy of the third-to-last symbol onto the last two (the final pause
+            # and the end marker). Without a final punctuation mark that symbol is the last sound, so the
+            # pause gets voiced and an extra vowel is heard after the last word ("súrinen,").
+            ipa += "."
+        return self.frontend.postprocess_phoneme_string(ipa,
                                                         for_feature_extraction=True,
                                                         include_eos_symbol=True,
                                                         for_plot_labels=False)
