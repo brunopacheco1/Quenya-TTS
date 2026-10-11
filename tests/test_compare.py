@@ -8,6 +8,7 @@ from quenya_tts.compare import estimate_lines
 from quenya_tts.compare import find_lines
 from quenya_tts.compare import ipa_to_phones
 from quenya_tts.compare import phone_error_rate
+from quenya_tts.compare import snap_to_quiet
 
 
 class PhonesTest(unittest.TestCase):
@@ -83,6 +84,19 @@ class CutByPhonesTest(unittest.TestCase):
         spans = cut_by_phones([list("ab"), list("xyz"), list("cd")], [("a", 0.0), ("b", 1.0), ("c", 5.0), ("d", 6.0)], 8.0)
         self.assertTrue(spans[0][1] <= spans[1][0] + 1e-9 or abs(spans[0][1] - spans[1][0]) < 1e-9)
         self.assertTrue(1.0 < spans[1][1] < 5.0)
+
+
+class SnapToQuietTest(unittest.TestCase):
+
+    def test_moves_cut_into_nearby_gap(self):
+        loudness = [1.0] * 100
+        loudness[40:45] = [0.01] * 5  # a pause at 0.40-0.44 s, frames of 10 ms
+        self.assertAlmostEqual(snap_to_quiet(0.62, loudness, 0.01, window=0.3), 0.44)
+
+    def test_keeps_cut_without_gap_in_reach(self):
+        loudness = [1.0] * 100
+        loudness[10] = 0.0
+        self.assertAlmostEqual(snap_to_quiet(0.62, loudness, 0.01, window=0.2), 0.62)
 
 
 if __name__ == "__main__":

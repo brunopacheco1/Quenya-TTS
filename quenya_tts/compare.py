@@ -199,6 +199,21 @@ def cut_by_phones(line_phones, heard, duration):
     return [(bounds[i], max(bounds[i + 1], bounds[i] + 0.05)) for i in range(len(line_phones))]
 
 
+def snap_to_quiet(cut, loudness, frame_seconds, window=0.4):
+    """
+    Moves a cut (in seconds) to the quietest frame within window seconds of it. loudness is a sequence of
+    per-frame levels (for example RMS) with frame_seconds per frame. Readers usually breathe or pause between
+    lines, so this puts a cut that landed on the first sound of the next line back into the gap.
+    """
+    centre = int(round(cut / frame_seconds))
+    reach = int(round(window / frame_seconds))
+    low, high = max(0, centre - reach), min(len(loudness), centre + reach + 1)
+    if low >= high:
+        return cut
+    quietest = min(range(low, high), key=lambda i: (loudness[i], abs(i - centre)))
+    return quietest * frame_seconds
+
+
 def load_recognizer(device):
     import torch
     from transformers import AutoModelForCTC
@@ -326,8 +341,12 @@ def main():
     else:
         print("Finding the lines in the reference")
         line_phones = [ipa_to_phones(to_ipa(line)) for line in lines]
-        spans = [(int(start * SR), int(end * SR))
-                 for start, end in cut_by_phones(line_phones, recognize.timed(reference), len(reference) / SR)]
+        found = cut_by_phones(line_phones, recognize.timed(reference), len(reference) / SR)
+        hop = 160
+        loudness = librosa.feature.rms(y=reference, frame_length=640, hop_length=hop)[0].tolist()
+        cuts = [snap_to_quiet(end, loudness, hop / SR) for _, end in found[:-1]]
+        bounds = [found[0][0]] + cuts + [found[-1][1]]
+        spans = [(int(bounds[i] * SR), int(max(bounds[i + 1], bounds[i] + 0.05) * SR)) for i in range(len(lines))]
     with open(os.path.join(args.output, "segments.csv"), "w", encoding="utf8", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["line", "start_s", "end_s", "text"])
