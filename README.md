@@ -45,7 +45,7 @@ pip install "transformers>=4.46,<4.50"
 python -m quenya_tts.compare path/to/recording.mp3 --text namarie.txt -o comparisons/namarie
 ```
 
-The text file has one line per spoken line. The recording is cut into lines at its longest pauses; if a cut is wrong, fix the times in `segments.csv` and run again with `--segments comparisons/namarie/segments.csv`. Keep recordings you have no rights to outside the repository.
+The text file has one line per spoken line. The recording is cut into lines where the recogniser hears each line's sounds, so lines the reader runs together are still found. Check the cuts with `--segments_only`; if one is wrong, fix the times in `segments.csv` and run again with `--segments comparisons/namarie/segments.csv`. Keep recordings you have no rights to outside the repository.
 
 ## Training
 

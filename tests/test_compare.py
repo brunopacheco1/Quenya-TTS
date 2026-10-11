@@ -3,6 +3,7 @@
 import unittest
 
 from quenya_tts.compare import align
+from quenya_tts.compare import cut_by_phones
 from quenya_tts.compare import estimate_lines
 from quenya_tts.compare import find_lines
 from quenya_tts.compare import ipa_to_phones
@@ -63,6 +64,25 @@ class EstimateLinesTest(unittest.TestCase):
 
     def test_follows_line_lengths_without_pauses(self):
         self.assertEqual(estimate_lines([(0, 300)], [1, 2]), [(0, 100), (100, 300)])
+
+
+class CutByPhonesTest(unittest.TestCase):
+
+    def test_cuts_between_lines_even_without_pauses(self):
+        lines = [list("abc"), list("def"), list("gh")]
+        # heard at 1 s per phone with no pauses, one phone misheard and one extra
+        heard = [(p, float(t)) for t, p in enumerate("abxdefzgh")]
+        spans = cut_by_phones(lines, heard, 10.0)
+        self.assertEqual(len(spans), 3)
+        self.assertAlmostEqual(spans[0][1], 2.5)  # between c (heard as x at 2 s) and d at 3 s
+        self.assertAlmostEqual(spans[1][1], 6.0)  # between f at 5 s and g at 7 s, past the extra z
+        self.assertEqual(spans[0][0], 0.0)
+        self.assertAlmostEqual(spans[2][1], 8.5)
+
+    def test_line_not_heard_is_interpolated(self):
+        spans = cut_by_phones([list("ab"), list("xyz"), list("cd")], [("a", 0.0), ("b", 1.0), ("c", 5.0), ("d", 6.0)], 8.0)
+        self.assertTrue(spans[0][1] <= spans[1][0] + 1e-9 or abs(spans[0][1] - spans[1][0]) < 1e-9)
+        self.assertTrue(1.0 < spans[1][1] < 5.0)
 
 
 if __name__ == "__main__":

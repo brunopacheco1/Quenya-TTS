@@ -11,10 +11,11 @@ The phone recogniser is facebook/wav2vec2-xlsr-53-espeak-cv-ft, a multilingual m
 instead of words. It has never heard Quenya either, so treat its output as a second opinion, not ground
 truth: a difference that shows up in the reference and in our output alike is probably the recogniser.
 
-The reference is cut into lines at its longest pauses. When the reader runs lines together, so that
-there are fewer pauses than lines, the remaining cuts are estimated from the length of each line. The cut
-points are written to segments.csv in the output folder; check them with --segments_only, fix any wrong
-times, and run again with --segments.
+The reference is cut into lines by running the recogniser over the whole recording and aligning what it
+hears with the expected phones of the whole text, so each line is found where its sounds are, even when
+the reader runs lines together (--cut pauses cuts at the longest pauses instead). The cut points are
+written to segments.csv in the output folder; check them with --segments_only, fix any wrong times, and
+run again with --segments.
 
 Needs the reader's requirements plus transformers:
     pip install "transformers>=4.46,<4.50"
@@ -156,6 +157,48 @@ def cut_reference(reference, lines, top_db):
     return estimate_lines(intervals, [len([c for c in line if c.isalpha()]) or 1 for line in lines]), True
 
 
+def cut_by_phones(line_phones, heard, duration):
+    """
+    Finds where each line is spoken by aligning the expected phones of the whole text (line_phones: one
+    phone list per line) with the phones the recogniser heard in the whole recording (heard: a list of
+    (phone, time in seconds)). Each cut goes halfway between the last phone heard for one line and the
+    first heard for the next. Returns one (start_s, end_s) per line.
+    """
+    expected, owner = [], []
+    for number, phones in enumerate(line_phones):
+        expected += phones
+        owner += [number] * len(phones)
+    _, pairs = align(expected, [phone for phone, _ in heard])
+    first = [None] * len(line_phones)
+    last = [None] * len(line_phones)
+    e = h = 0
+    for exp, got in pairs:
+        if exp is not None and got is not None:
+            line, time = owner[e], heard[h][1]
+            first[line] = time if first[line] is None else first[line]
+            last[line] = time
+        e += exp is not None
+        h += got is not None
+    # lines the alignment found nothing for get times interpolated from their neighbours
+    known = [i for i in range(len(line_phones)) if first[i] is not None]
+    if not known:
+        step = duration / len(line_phones)
+        return [(i * step, (i + 1) * step) for i in range(len(line_phones))]
+    for i in range(len(line_phones)):
+        if first[i] is None:
+            before = max([k for k in known if k < i], default=None)
+            after = min([k for k in known if k > i], default=None)
+            low = last[before] if before is not None else 0.0
+            high = first[after] if after is not None else duration
+            lo_i = before if before is not None else -1
+            hi_i = after if after is not None else len(line_phones)
+            first[i] = low + (high - low) * (i - lo_i) / (hi_i - lo_i) - 0.01
+            last[i] = first[i] + 0.02
+    cuts = [(last[i] + first[i + 1]) / 2 for i in range(len(line_phones) - 1)]
+    bounds = [max(0.0, first[0] - 0.3)] + cuts + [min(duration, last[-1] + 0.5)]
+    return [(bounds[i], max(bounds[i + 1], bounds[i] + 0.05)) for i in range(len(line_phones))]
+
+
 def load_recognizer(device):
     import torch
     from transformers import AutoModelForCTC
@@ -170,6 +213,24 @@ def load_recognizer(device):
             logits = model(inputs.input_values.to(device)).logits
         return processor.batch_decode(torch.argmax(logits, dim=-1))[0]
 
+    def recognize_timed(audio):
+        """The phones heard in a long recording, each with the time in seconds where it starts."""
+        seconds_per_frame = model.config.inputs_to_logits_ratio / SR
+        heard, previous = [], None
+        chunk = 30 * SR  # recognise in chunks, to keep memory low on long recordings
+        for offset in range(0, len(audio), chunk):
+            inputs = processor(audio[offset:offset + chunk], sampling_rate=SR, return_tensors="pt")
+            with torch.no_grad():
+                ids = torch.argmax(model(inputs.input_values.to(device)).logits, dim=-1)[0].tolist()
+            for frame, token_id in enumerate(ids):
+                if token_id != previous and token_id != processor.tokenizer.pad_token_id:
+                    time = offset / SR + frame * seconds_per_frame
+                    token = processor.tokenizer.convert_ids_to_tokens(token_id)
+                    heard += [(phone, time) for phone in ipa_to_phones(token)]
+                previous = token_id
+        return heard
+
+    recognize.timed = recognize_timed
     return recognize
 
 
@@ -223,6 +284,8 @@ def main():
     parser.add_argument("--text", required=True, help="the text, one line per line, in the order it is spoken")
     parser.add_argument("-o", "--output", default="comparisons/latest", help="folder for the report, plots and WAVs")
     parser.add_argument("--segments", help="CSV with start_s,end_s per line (as written to segments.csv) instead of cutting at pauses")
+    parser.add_argument("--cut", choices=["phones", "pauses"], default="phones",
+                        help="find the lines where the recogniser hears their phones (default), or at the longest pauses")
     parser.add_argument("--top_db", type=float, default=35, help="how far below the peak counts as silence when cutting lines")
     parser.add_argument("--model", default=None, help="ToucanTTS checkpoint (.pt); default: the pretrained multilingual model")
     parser.add_argument("--speaker", default=None, help="a WAV file whose voice our model should imitate (try the reference)")
@@ -247,17 +310,24 @@ def main():
     model = os.path.abspath(args.model) if args.model else None
 
     reference, _ = librosa.load(args.reference, sr=SR, mono=True)
+    print("Loading the phone recogniser")
+    recognize = load_recognizer(args.device)
     if args.segments:
         with open(args.segments, encoding="utf8") as f:
             rows = list(csv.DictReader(f))
         spans = [(int(float(row["start_s"]) * SR), int(float(row["end_s"]) * SR)) for row in rows]
         if len(spans) != len(lines):
             parser.error(f"{args.segments} has {len(spans)} rows for {len(lines)} lines of text")
-    else:
+    elif args.cut == "pauses":
         spans, estimated = cut_reference(reference, lines, args.top_db)
         if estimated:
             print("The recording has fewer pauses than the text has lines, so some cut points are estimated. "
                   "Check segments.csv and fix any wrong times, then run again with --segments.")
+    else:
+        print("Finding the lines in the reference")
+        line_phones = [ipa_to_phones(to_ipa(line)) for line in lines]
+        spans = [(int(start * SR), int(end * SR))
+                 for start, end in cut_by_phones(line_phones, recognize.timed(reference), len(reference) / SR)]
     with open(os.path.join(args.output, "segments.csv"), "w", encoding="utf8", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["line", "start_s", "end_s", "text"])
@@ -269,9 +339,8 @@ def main():
             soundfile.write(os.path.join(args.output, f"line{number:02d}_reference.wav"), reference[start:end], SR)
         return
 
-    print("Loading the speech synthesiser and the phone recogniser")
+    print("Loading the speech synthesiser")
     tts, phonemize = load_reader(model=model, speaker=speaker, device=args.device)
-    recognize = load_recognizer(args.device)
 
     results = []
     differences = {"reference": collections.Counter(), "ours": collections.Counter()}
