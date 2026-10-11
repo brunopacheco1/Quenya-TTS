@@ -3,6 +3,7 @@
 import unittest
 
 from quenya_tts.compare import align
+from quenya_tts.compare import estimate_lines
 from quenya_tts.compare import find_lines
 from quenya_tts.compare import ipa_to_phones
 from quenya_tts.compare import phone_error_rate
@@ -48,6 +49,20 @@ class FindLinesTest(unittest.TestCase):
     def test_too_few_stretches(self):
         with self.assertRaises(ValueError):
             find_lines([(0, 10)], 2)
+
+
+class EstimateLinesTest(unittest.TestCase):
+
+    def test_snaps_to_a_nearby_pause(self):
+        # two stretches of speech, three lines of equal length: one cut lands in the pause, one is estimated
+        spans = estimate_lines([(0, 100), (110, 300)], [1, 1, 1])
+        self.assertEqual(len(spans), 3)
+        self.assertEqual(spans[0], (0, 105))
+        self.assertEqual(spans[-1][1], 300)
+        self.assertTrue(all(start < end for start, end in spans))
+
+    def test_follows_line_lengths_without_pauses(self):
+        self.assertEqual(estimate_lines([(0, 300)], [1, 2]), [(0, 100), (100, 300)])
 
 
 if __name__ == "__main__":

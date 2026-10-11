@@ -11,8 +11,10 @@ The phone recogniser is facebook/wav2vec2-xlsr-53-espeak-cv-ft, a multilingual m
 instead of words. It has never heard Quenya either, so treat its output as a second opinion, not ground
 truth: a difference that shows up in the reference and in our output alike is probably the recogniser.
 
-The reference is cut into lines at its longest pauses. The cut points are written to segments.csv in the
-output folder; if a cut is wrong, fix the times there and run again with --segments.
+The reference is cut into lines at its longest pauses. When the reader runs lines together, so that
+there are fewer pauses than lines, the remaining cuts are estimated from the length of each line. The cut
+points are written to segments.csv in the output folder; check them with --segments_only, fix any wrong
+times, and run again with --segments.
 
 Needs the reader's requirements plus transformers:
     pip install "transformers>=4.46,<4.50"
@@ -115,6 +117,45 @@ def find_lines(intervals, n_lines):
     return lines
 
 
+def estimate_lines(intervals, weights):
+    """
+    Fallback when a recording has fewer pauses than lines: spreads the lines over the speech in proportion
+    to their weights (their length in letters), moving each cut to a nearby pause when there is one.
+    Returns a list of (start, end) sample indices, one per weight.
+    """
+    start, end = intervals[0][0], intervals[-1][1]
+    pauses = [(intervals[i][1] + intervals[i + 1][0]) // 2 for i in range(len(intervals) - 1)]
+    total = float(sum(weights))
+    tolerance = (end - start) / len(weights) / 3
+    cuts, done = [], 0.0
+    for weight in weights[:-1]:
+        done += weight
+        target = start + (end - start) * done / total
+        nearest = min(pauses, key=lambda pause: abs(pause - target), default=None)
+        cut = nearest if nearest is not None and abs(nearest - target) <= tolerance else int(target)
+        cuts.append(max(cut, cuts[-1] + 1 if cuts else start + 1))
+    bounds = [start] + cuts + [end]
+    return [(bounds[i], bounds[i + 1]) for i in range(len(weights))]
+
+
+def cut_reference(reference, lines, top_db):
+    """
+    Cuts the reference into one span per line. Tries the longest pauses first, with ever lower silence
+    thresholds; if the recording still has too few pauses, estimates the cuts. Returns (spans, estimated).
+    """
+    import librosa
+
+    margin = int(0.1 * SR)
+    for threshold in range(int(top_db), 14, -5):
+        intervals = librosa.effects.split(reference, top_db=threshold)
+        if len(intervals) >= len(lines):
+            spans = [(max(0, start - margin), min(len(reference), end + margin))
+                     for start, end in find_lines(intervals, len(lines))]
+            return spans, False
+    intervals = librosa.effects.split(reference, top_db=top_db)
+    return estimate_lines(intervals, [len([c for c in line if c.isalpha()]) or 1 for line in lines]), True
+
+
 def load_recognizer(device):
     import torch
     from transformers import AutoModelForCTC
@@ -186,6 +227,8 @@ def main():
     parser.add_argument("--model", default=None, help="ToucanTTS checkpoint (.pt); default: the pretrained multilingual model")
     parser.add_argument("--speaker", default=None, help="a WAV file whose voice our model should imitate (try the reference)")
     parser.add_argument("--device", default="cpu", help="cpu, cuda or mps")
+    parser.add_argument("--segments_only", action="store_true",
+                        help="only cut the reference into lines (segments.csv and one WAV per line), to check the cuts")
     parser.add_argument("--no_plots", action="store_true", help="skip the pitch plots, which are the slow part")
     args = parser.parse_args()
 
@@ -211,14 +254,20 @@ def main():
         if len(spans) != len(lines):
             parser.error(f"{args.segments} has {len(spans)} rows for {len(lines)} lines of text")
     else:
-        margin = int(0.1 * SR)
-        spans = [(max(0, start - margin), min(len(reference), end + margin))
-                 for start, end in find_lines(librosa.effects.split(reference, top_db=args.top_db), len(lines))]
+        spans, estimated = cut_reference(reference, lines, args.top_db)
+        if estimated:
+            print("The recording has fewer pauses than the text has lines, so some cut points are estimated. "
+                  "Check segments.csv and fix any wrong times, then run again with --segments.")
     with open(os.path.join(args.output, "segments.csv"), "w", encoding="utf8", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["line", "start_s", "end_s", "text"])
         for number, ((start, end), line) in enumerate(zip(spans, lines), 1):
             writer.writerow([number, f"{start / SR:.2f}", f"{end / SR:.2f}", line])
+    if args.segments_only:
+        print(f"Cut points: {os.path.join(args.output, 'segments.csv')}")
+        for number, (start, end) in enumerate(spans, 1):
+            soundfile.write(os.path.join(args.output, f"line{number:02d}_reference.wav"), reference[start:end], SR)
+        return
 
     print("Loading the speech synthesiser and the phone recogniser")
     tts, phonemize = load_reader(model=model, speaker=speaker, device=args.device)
