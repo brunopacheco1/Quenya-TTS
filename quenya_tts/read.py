@@ -40,6 +40,19 @@ def synthesize(tts, phones, speed=1.0, lead_seconds=0.15):
     return tts(phones, input_is_phones=True, durations=durations, prosody_creativity=0.0)
 
 
+def load_reader(model=None, speaker=None, device="cpu"):
+    """Returns (tts, phonemize): a ToucanTTS interface with the Quenya settings, and the Quenya phonemizer."""
+    from quenya_tts.toucan import PROXY_LANGUAGE, QuenyaPhonemizer, setup_toucan
+    setup_toucan()
+    from InferenceInterfaces.ToucanTTSInterface import ToucanTTSInterface
+
+    phonemize = QuenyaPhonemizer(device=device)
+    tts = ToucanTTSInterface(device=device, tts_model_path=model, language=PROXY_LANGUAGE)
+    if speaker:
+        tts.set_utterance_embedding(speaker)
+    return tts, phonemize
+
+
 def main():
     parser = argparse.ArgumentParser(description="Read Quenya text aloud with IMS-Toucan.")
     parser.add_argument("text", nargs="?", help="Quenya text to read")
@@ -75,17 +88,10 @@ def main():
     model = os.path.abspath(args.model) if args.model else None
     speaker = os.path.abspath(args.speaker) if args.speaker else None
 
-    from quenya_tts.toucan import PROXY_LANGUAGE, QuenyaPhonemizer, setup_toucan
-    setup_toucan()
+    tts, phonemize = load_reader(model=model, speaker=speaker, device=args.device)
     import soundfile
     import torch
-    from InferenceInterfaces.ToucanTTSInterface import ToucanTTSInterface
     from Utility.utils import float2pcm
-
-    phonemize = QuenyaPhonemizer(device=args.device)
-    tts = ToucanTTSInterface(device=args.device, tts_model_path=model, language=PROXY_LANGUAGE)
-    if speaker:
-        tts.set_utterance_embedding(speaker)
 
     # the same loop as ToucanTTSInterface.read_to_file, but with phonemes as input and longer silence at both ends
     sr = 24000

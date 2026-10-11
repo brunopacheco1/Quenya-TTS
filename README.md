@@ -36,6 +36,17 @@ On macOS, if phonemizer cannot find espeak-ng, set `PHONEMIZER_ESPEAK_LIBRARY=/o
 
 The reader uses the pretrained multilingual Toucan model, downloaded from Hugging Face on first use. That model has never heard Quenya, so the pronunciation follows our rules but the voice and rhythm are generic.
 
+## Comparing with a recording
+
+`quenya_tts.compare` checks our output against a reference recording of the same text, such as a reading of Namárië. For each line it lists what a phone recogniser hears in both recordings next to the IPA from our rules, plots both pitch contours aligned in time, and saves both versions of the line as WAV files. It needs one more package:
+
+```
+pip install "transformers>=4.46,<4.50"
+python -m quenya_tts.compare path/to/recording.mp3 --text namarie.txt -o comparisons/namarie
+```
+
+The text file has one line per spoken line. The recording is cut into lines at its longest pauses; if a cut is wrong, fix the times in `segments.csv` and run again with `--segments comparisons/namarie/segments.csv`. Keep recordings you have no rights to outside the repository.
+
 ## Training
 
 Each corpus is a folder with `transcript.txt` (one `file_name|Quenya text` per line) next to its audio files, under `Corpora/Quenya/<name>` (or `$QUENYA_CORPORA_DIR/<name>`):
