@@ -15,6 +15,8 @@ Examples, from the repository root:
 import argparse
 import os
 
+import numpy as np
+
 from quenya_g2p import to_ipa
 
 
@@ -28,7 +30,8 @@ def synthesize(tts, phones, speed=1.0, lead_seconds=0.15, pitch_variance=1.0, cr
     Toucan always shortens the opening pause to a single frame, so the speech starts at once and the first
     syllable comes out clipped. Here a second pause symbol follows the opening one, the durations are
     predicted once, that second pause is set to lead_seconds, and the sentence is spoken again with those
-    durations. With creativity=0 both runs predict the same pitch and energy.
+    durations. With creativity=0 both runs predict the same pitch and energy. Whatever the model makes during
+    the lead-in is then muted, so it starts in true silence.
 
     pitch_variance scales how far the melody moves (below 1 is flatter, more chant-like); creativity is
     Toucan's prosody sampling temperature (0 always gives the same reading, about 0.3-0.6 adds variety).
@@ -41,7 +44,23 @@ def synthesize(tts, phones, speed=1.0, lead_seconds=0.15, pitch_variance=1.0, cr
                              **prosody)
     durations = durations.squeeze(0).clone()
     durations[1] = max(int(durations[1]), round(lead_seconds / FRAME_SECONDS))
-    return tts(phones, input_is_phones=True, durations=durations, **prosody)
+    wave, sr = tts(phones, input_is_phones=True, durations=durations, **prosody)
+    return silence_lead(wave, sr, int(durations[0] + durations[1]), int(durations.sum())), sr
+
+
+def silence_lead(wave, sr, lead_frames, total_frames, fade_seconds=0.01):
+    """
+    Mutes the audio the model makes during the lead-in pause, fading in just before the first sound.
+
+    The model does not keep pauses silent: it often puts a short burst into the lead-in, which sounds and
+    is recognised as an extra consonant (k, p, dʒ) before the first word.
+    """
+    wave = wave.copy()
+    end = round(len(wave) * lead_frames / total_frames)
+    fade = min(end, round(fade_seconds * sr))
+    wave[:end - fade] = 0
+    wave[end - fade:end] *= np.linspace(0.0, 1.0, fade, endpoint=False, dtype=wave.dtype)
+    return wave
 
 
 def load_reader(model=None, speaker=None, device="cpu"):
