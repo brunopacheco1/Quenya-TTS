@@ -305,6 +305,9 @@ def main():
     parser.add_argument("--model", default=None, help="ToucanTTS checkpoint (.pt); default: the pretrained multilingual model")
     parser.add_argument("--speaker", default=None, help="a WAV file whose voice our model should imitate (try the reference)")
     parser.add_argument("--device", default="cpu", help="cpu, cuda or mps")
+    parser.add_argument("--speed", type=float, default=1.0, help="our duration scaling, as in quenya_tts.read")
+    parser.add_argument("--pitch_variance", type=float, default=1.0, help="our melody range, as in quenya_tts.read")
+    parser.add_argument("--creativity", type=float, default=0.0, help="our prosody temperature, as in quenya_tts.read")
     parser.add_argument("--segments_only", action="store_true",
                         help="only cut the reference into lines (segments.csv and one WAV per line), to check the cuts")
     parser.add_argument("--no_plots", action="store_true", help="skip the pitch plots, which are the slow part")
@@ -366,7 +369,8 @@ def main():
     for number, ((start, end), line) in enumerate(zip(spans, lines), 1):
         print(f"Line {number}: {line}")
         ref_audio = reference[start:end]
-        wave, sr = synthesize(tts, phonemize(line))
+        wave, sr = synthesize(tts, phonemize(line), speed=args.speed,
+                              pitch_variance=args.pitch_variance, creativity=args.creativity)
         ours = librosa.resample(np.asarray(wave, dtype=np.float32), orig_sr=sr, target_sr=SR)
         ours = librosa.effects.trim(ours, top_db=args.top_db)[0]
 
