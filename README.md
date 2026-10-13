@@ -54,12 +54,21 @@ Each corpus is a folder with `transcript.txt` (one `file_name|Quenya text` per l
 - `Volunteers`: recordings made for the book by community volunteers under CC-BY or CC0. The public model is trained only on these.
 - `Atanquesta`, `Glaemscrafu`: the recordings used in the thesis. Atanquesta is CC BY-NC-SA 4.0, so models trained on these are for experiments only. Pass `--experimental` to include them.
 
+Recordings of whole texts (a poem, a prayer) can be turned into a corpus with `quenya_tts.prepare_corpus`. It pairs `<name>.mp3` with `<name>.txt` (one line of Quenya per line), cuts each recording into one clip per line with the comparison tool's phone recogniser, leaves out lines it hears too differently from the text, and writes the clips and `transcript.txt`:
+
+```
+python -m quenya_tts.prepare_corpus --audio recordings/ --texts texts/ --name Glaemscrafu
+```
+
 Training needs a CUDA GPU:
 
 ```
 python -m quenya_tts.train --gpu_id 0
+python -m quenya_tts.train --gpu_id 0 --corpora Glaemscrafu --steps 500   # a short test run on one corpus
 python -m quenya_tts.read "Namárië" --model Models/ToucanTTS_Quenya/best.pt -o audios/namarie.wav
 ```
+
+Without a GPU of your own, [notebooks/kaggle_train.ipynb](notebooks/kaggle_train.ipynb) runs the whole thing (install, corpus, training, listening) on Kaggle's free GPU.
 
 ## Master's thesis (2024)
 

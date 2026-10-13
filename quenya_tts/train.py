@@ -10,6 +10,7 @@ no Quenya one.
 Run from the repository root, on a machine with a CUDA GPU:
     python -m quenya_tts.train --gpu_id 0
     python -m quenya_tts.train --gpu_id 0 --experimental
+    python -m quenya_tts.train --gpu_id 0 --corpora Glaemscrafu --steps 500   # a short test run
 """
 
 import argparse
@@ -21,10 +22,15 @@ def main():
     parser = argparse.ArgumentParser(description="Fine-tune ToucanTTS on Quenya.")
     parser.add_argument("--gpu_id", default="0", help="which CUDA GPU to use")
     parser.add_argument("--experimental", action="store_true", help="also train on Atanquesta and Glaemscrafu (not for publishing)")
+    parser.add_argument("--corpora", nargs="+", default=None,
+                        help="train on exactly these corpora instead (e.g. --corpora Glaemscrafu for a test run)")
     parser.add_argument("--resume_checkpoint", default=None, help="continue from this checkpoint instead of the pretrained model")
     parser.add_argument("--resume", action="store_true", help="resume the previous run in the model folder")
     parser.add_argument("--model_dir", default=None, help="where to save checkpoints (default: Models/ToucanTTS_Quenya[_experimental])")
     parser.add_argument("--steps", type=int, default=5000)
+    parser.add_argument("--checkpoint_every", type=int, default=250,
+                        help="save a checkpoint (and best.pt) every this many steps; Toucan's default is once per epoch, "
+                             "which on a small corpus means every few steps")
     parser.add_argument("--batch_size", type=int, default=12, help="lower this if the GPU runs out of memory")
     parser.add_argument("--lr", type=float, default=1e-5, help="with more than ~1000 recordings this can go up to 1e-4")
     parser.add_argument("--wandb", action="store_true", help="log to Weights & Biases")
@@ -36,10 +42,11 @@ def main():
     from quenya_tts.corpora import EXPERIMENTAL_CORPORA, PUBLIC_CORPORA, read_phonemized
     from quenya_tts.toucan import MODEL_DIR, PROXY_LANGUAGE, QuenyaPhonemizer, setup_toucan
 
+    public = not args.experimental and set(args.corpora or PUBLIC_CORPORA) <= set(PUBLIC_CORPORA)
     save_dir = os.path.abspath(args.model_dir) if args.model_dir else os.path.join(
-        MODEL_DIR, "ToucanTTS_Quenya" + ("_experimental" if args.experimental else ""))
+        MODEL_DIR, "ToucanTTS_Quenya" + ("" if public else "_experimental"))
     resume_checkpoint = os.path.abspath(args.resume_checkpoint) if args.resume_checkpoint else None
-    corpora = PUBLIC_CORPORA + (EXPERIMENTAL_CORPORA if args.experimental else [])
+    corpora = args.corpora or PUBLIC_CORPORA + (EXPERIMENTAL_CORPORA if args.experimental else [])
     phonemize = QuenyaPhonemizer()
     transcripts = {name: read_phonemized(name, phonemize) for name in corpora}  # before changing directory
 
@@ -81,6 +88,7 @@ def main():
                fine_tune=not args.resume,
                resume=args.resume,
                steps=args.steps,
+               steps_per_checkpoint=args.checkpoint_every,
                use_wandb=args.wandb,
                train_samplers=[torch.utils.data.RandomSampler(train_data)],
                gpu_count=1)
