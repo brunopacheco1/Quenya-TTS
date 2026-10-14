@@ -60,6 +60,8 @@ Recordings of whole texts (a poem, a prayer) can be turned into a corpus with `q
 python -m quenya_tts.prepare_corpus --audio recordings/ --texts texts/ --name Glaemscrafu
 ```
 
+To record a new voice, [recording/](recording) has a 2,500-line script (about 90 minutes of speech), a recorder that saves one file per line (`python -m quenya_tts.record`), and a guide on how to read. `prepare_corpus --script recording/script.tsv --speaker <name>` turns those files into a corpus.
+
 Training needs a CUDA GPU:
 
 ```
