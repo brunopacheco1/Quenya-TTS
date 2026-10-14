@@ -214,6 +214,24 @@ def snap_to_quiet(cut, loudness, frame_seconds, window=0.4):
     return quietest * frame_seconds
 
 
+def find_line_spans(audio, lines, recognize):
+    """
+    Finds where each line of text is spoken in a recording (audio at SR) with the phone recogniser from
+    load_recognizer, moving each cut to the quietest point nearby. Returns one (start_s, end_s) per line.
+    """
+    import librosa
+
+    from quenya_g2p import to_ipa
+
+    line_phones = [ipa_to_phones(to_ipa(line)) for line in lines]
+    found = cut_by_phones(line_phones, recognize.timed(audio), len(audio) / SR)
+    hop = 160
+    loudness = librosa.feature.rms(y=audio, frame_length=640, hop_length=hop)[0].tolist()
+    cuts = [snap_to_quiet(end, loudness, hop / SR) for _, end in found[:-1]]
+    bounds = [found[0][0]] + cuts + [found[-1][1]]
+    return [(bounds[i], max(bounds[i + 1], bounds[i] + 0.05)) for i in range(len(lines))]
+
+
 def load_recognizer(device):
     import torch
     from transformers import AutoModelForCTC
@@ -343,13 +361,7 @@ def main():
                   "Check segments.csv and fix any wrong times, then run again with --segments.")
     else:
         print("Finding the lines in the reference")
-        line_phones = [ipa_to_phones(to_ipa(line)) for line in lines]
-        found = cut_by_phones(line_phones, recognize.timed(reference), len(reference) / SR)
-        hop = 160
-        loudness = librosa.feature.rms(y=reference, frame_length=640, hop_length=hop)[0].tolist()
-        cuts = [snap_to_quiet(end, loudness, hop / SR) for _, end in found[:-1]]
-        bounds = [found[0][0]] + cuts + [found[-1][1]]
-        spans = [(int(bounds[i] * SR), int(max(bounds[i + 1], bounds[i] + 0.05) * SR)) for i in range(len(lines))]
+        spans = [(int(start * SR), int(end * SR)) for start, end in find_line_spans(reference, lines, recognize)]
     with open(os.path.join(args.output, "segments.csv"), "w", encoding="utf8", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["line", "start_s", "end_s", "text"])
