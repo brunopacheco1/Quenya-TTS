@@ -64,15 +64,17 @@ class SessionTest(unittest.TestCase):
 
 class TakeCheckTest(unittest.TestCase):
 
-    def test_drops_startup_zeros_and_flags_cut_endings(self):
+    def test_drops_startup_zeros_and_flags_cut_takes(self):
         import numpy as np
         from quenya_tts.record import level_warning, strip_startup
         sr = 1000
         voice = 0.5 * np.sin(np.linspace(0.1, 200, sr))
-        fading = np.concatenate([voice, np.zeros(sr // 2) + 0.001])
+        quiet = np.zeros(sr // 2) + 0.001
+        fading = np.concatenate([quiet, voice, quiet])
         self.assertEqual(len(strip_startup(np.concatenate([np.zeros(300), fading]))), len(fading))
         self.assertIsNone(level_warning(fading, sr))
-        self.assertIn("cut off", level_warning(voice, sr))
+        self.assertIn("very end", level_warning(np.concatenate([quiet, voice]), sr))
+        self.assertIn("very start", level_warning(np.concatenate([voice, quiet]), sr))
         self.assertIn("clipped", level_warning(np.ones(sr), sr))
 
 
