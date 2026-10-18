@@ -11,6 +11,9 @@ Examples, from the repository root:
     python -m quenya_tts.read --file chapter.txt -o audios/chapter.wav
     python -m quenya_tts.read "sinyë" --play            # only play it, no file
     python -m quenya_tts.read "Namárië" --phonemes   # only print the phonemes, no audio
+
+Every reading carries an inaudible watermark and an "AI-generated" label (quenya_tts.watermark), as the EU AI
+Act requires for synthetic audio.
 """
 
 import argparse
@@ -24,7 +27,7 @@ from quenya_g2p import to_ipa
 FRAME_SECONDS = 384 / 24000  # one spectrogram frame of the ToucanTTS vocoder
 
 
-def synthesize(tts, phones, speed=1.0, lead_seconds=0.15, pitch_variance=1.0, creativity=0.0):
+def synthesize(tts, phones, speed=1.0, lead_seconds=0.15, pitch_variance=1.0, creativity=0.0, watermark=True):
     """
     Speaks a Toucan phoneme string with a real pause before the first sound.
 
@@ -36,7 +39,18 @@ def synthesize(tts, phones, speed=1.0, lead_seconds=0.15, pitch_variance=1.0, cr
 
     pitch_variance scales how far the melody moves (below 1 is flatter, more chant-like); creativity is
     Toucan's prosody sampling temperature (0 always gives the same reading, about 0.3-0.6 adds variety).
+
+    The result carries the AI-generated watermark (quenya_tts.watermark), as the EU AI Act requires; turn it
+    off only for audio that never leaves your own computer.
     """
+    wave, sr = _speak(tts, phones, speed, lead_seconds, pitch_variance, creativity)
+    if watermark:
+        from quenya_tts.watermark import mark
+        wave = mark(wave, sr)
+    return wave, sr
+
+
+def _speak(tts, phones, speed, lead_seconds, pitch_variance, creativity):
     prosody = dict(pitch_variance_scale=pitch_variance, prosody_creativity=creativity)
     if lead_seconds <= 0:
         return tts(phones, input_is_phones=True, duration_scaling_factor=speed, **prosody)
@@ -99,6 +113,9 @@ def main():
                         help="seconds of silence at the start and end of the file (many players and Bluetooth "
                              "headphones swallow the first moments of a file, which cuts off the first syllable)")
     parser.add_argument("--phonemes", action="store_true", help="only print the phonemes and exit")
+    parser.add_argument("--no-watermark", dest="watermark", action="store_false",
+                        help="leave out the AI-generated watermark: only for audio that never leaves your computer, "
+                             "since the EU AI Act requires it on anything shared")
     args = parser.parse_args()
 
     if args.file:
@@ -121,9 +138,10 @@ def main():
     speaker = os.path.abspath(args.speaker) if args.speaker else None
 
     tts, phonemize = load_reader(model=model, speaker=speaker, device=args.device)
-    import soundfile
     import torch
     from Utility.utils import float2pcm
+
+    from quenya_tts.watermark import write_generated
 
     # the same loop as ToucanTTSInterface.read_to_file, but with phonemes as input and longer silence at both ends
     sr = 24000
@@ -132,12 +150,13 @@ def main():
     wav = padding.clone()
     for line in lines:
         spoken, sr = synthesize(tts, phonemize(line), speed=args.speed, lead_seconds=args.lead,
-                                pitch_variance=args.pitch_variance, creativity=args.creativity)
+                                pitch_variance=args.pitch_variance, creativity=args.creativity,
+                                watermark=args.watermark)
         wav = torch.cat((wav, torch.tensor(spoken).cpu(), silence), 0)
     wav = torch.cat((wav, padding), 0)
     if output:
         os.makedirs(os.path.dirname(output), exist_ok=True)
-        soundfile.write(file=output, data=float2pcm(wav), samplerate=sr, subtype="PCM_16")
+        write_generated(output, float2pcm(wav), sr)
         print(f"Saved {args.output}")
     if args.play:
         import sounddevice

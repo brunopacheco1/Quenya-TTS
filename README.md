@@ -53,7 +53,7 @@ The text file has one line per spoken line. The recording is cut into lines wher
 
 Each corpus is a folder with `transcript.txt` (one `file_name|Quenya text` per line) next to its audio files, under `Corpora/Quenya/<name>` (or `$QUENYA_CORPORA_DIR/<name>`):
 
-- `Volunteers`: recordings made by community volunteers on the [recording site](https://github.com/brunopacheco1/quenya-voices), accepted by a reviewer, with each volunteer's consent to training (their recordings stay private unless they chose to also publish them under CC BY 4.0). The public model is trained only on these. `python -m quenya_tts.volunteers download` fetches them.
+- `Volunteers`: recordings made by community volunteers on the [recording site](https://github.com/brunopacheco1/quenya-voices), accepted by a reviewer, with each volunteer's consent to training (their recordings stay private). The public model is trained only on these. `python -m quenya_tts.volunteers download` fetches them.
 - `Atanquesta`, `Glaemscrafu`: the recordings used in the thesis. Atanquesta is CC BY-NC-SA 4.0, so models trained on these are for experiments only. Pass `--experimental` to include them.
 
 Recordings of whole texts (a poem, a prayer) can be turned into a corpus with `quenya_tts.prepare_corpus`. It pairs `<name>.mp3` with `<name>.txt` (one line of Quenya per line), cuts each recording into one clip per line with the comparison tool's phone recogniser, leaves out lines it hears too differently from the text, and writes the clips and `transcript.txt`:
@@ -72,7 +72,39 @@ python -m quenya_tts.train --gpu_id 0 --corpora Glaemscrafu --steps 500   # a sh
 python -m quenya_tts.read "Namárië" --model Models/ToucanTTS_Quenya/best.pt -o audios/namarie.wav
 ```
 
-Without a GPU of your own, [notebooks/kaggle_train.ipynb](notebooks/kaggle_train.ipynb) runs the whole thing (install, corpus, training, listening) on Kaggle's free GPU.
+### Training on volunteer recordings: Gcore
+
+The public model is trained on a Gcore GPU machine in the EU, which `quenya_tts.gcore` creates for one run and deletes afterwards, with its disk and IP, whether training worked, failed or was stopped. The volunteer recordings go straight from the recording site's storage to that machine, so they are deleted with it and fetched again for every run: volunteers who asked for erasure are left out automatically. Only the release (artificial voice), logs and watermarked samples come back.
+
+```
+pip install gcore
+export GCORE_API_KEY=...  GCORE_CLOUD_PROJECT_ID=...  GCORE_CLOUD_REGION_ID=...   # an EU region
+export R2_ACCOUNT_ID=...  R2_ACCESS_KEY_ID=...  R2_SECRET_ACCESS_KEY=...          # read-only R2 token
+python -m quenya_tts.gcore flavors                                                # GPU machines and prices
+python -m quenya_tts.gcore train --ssh-key-name my-mac -o ~/quenya-runs --max-hours 6
+python -m quenya_tts.gcore cleanup                                                # anything left behind?
+```
+
+The script refuses regions outside the EU, as the volunteers were promised. Every run has a hard time limit (`--max-hours`, 6 by default; about €17 at most on one H100). At the limit the script stops the run and deletes the machine. The machine also powers itself off at the limit, even if your computer sleeps or loses its connection; with `--watchdog` it deletes itself too, using a second API key (`GCORE_WATCHDOG_API_KEY`, give it an expiry date) that is kept only on the machine. `cleanup` lists any Quenya-TTS machine still there and deletes it with `--yes`. Before the first run: add your SSH key in Gcore (Cloud > SSH keys), check that the default security group allows SSH (port 22), and sign Gcore's data processing agreement.
+
+### Development: Kaggle
+
+[notebooks/kaggle_train.ipynb](notebooks/kaggle_train.ipynb) trains on Kaggle's free GPU, for development and experiments on recordings you may use yourself (a Kaggle dataset). Volunteer recordings never go to Kaggle.
+
+Training checkpoints are private: Toucan stores the voice of a training clip in them as the default voice. Never share `best.pt` or any other checkpoint; release models only with `quenya_tts.publish`.
+
+## Releasing a model
+
+Volunteers record for training only, and are promised that a released model does not speak with their voice:
+
+```
+python -m quenya_tts.volunteers download -o ~/volunteers
+python -m quenya_tts.publish Models/ToucanTTS_Quenya/best.pt --voices ~/volunteers -o release/
+```
+
+`publish` refuses a model trained on anything but the volunteer recordings, gives it an artificial voice from Toucan's voice generator, checks that this voice does not sound like any volunteer, and writes the model with the [model card](MODEL_CARD.md), the [model licence](MODEL_LICENSE.md) (Open RAIL-M with use restrictions: no imitating real people) and the volunteers' credits.
+
+Everything the reader produces carries an inaudible AudioSeal watermark and an "AI-generated" label in the WAV metadata, as Article 50 of the EU AI Act requires for synthetic audio. Check a file with `python -m quenya_tts.watermark check file.wav`. `--no-watermark` exists only for audio that never leaves your computer.
 
 ## Master's thesis (2024)
 
