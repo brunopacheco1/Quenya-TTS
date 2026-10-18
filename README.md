@@ -53,7 +53,7 @@ The text file has one line per spoken line. The recording is cut into lines wher
 
 Each corpus is a folder with `transcript.txt` (one `file_name|Quenya text` per line) next to its audio files, under `Corpora/Quenya/<name>` (or `$QUENYA_CORPORA_DIR/<name>`):
 
-- `Volunteers`: recordings made for the book by community volunteers under CC-BY or CC0. The public model is trained only on these.
+- `Volunteers`: recordings made by community volunteers on the [recording site](https://github.com/brunopacheco1/quenya-voices), accepted by a reviewer, with each volunteer's consent to training (their recordings stay private unless they chose to also publish them under CC BY 4.0). The public model is trained only on these. `python -m quenya_tts.volunteers download` fetches them.
 - `Atanquesta`, `Glaemscrafu`: the recordings used in the thesis. Atanquesta is CC BY-NC-SA 4.0, so models trained on these are for experiments only. Pass `--experimental` to include them.
 
 Recordings of whole texts (a poem, a prayer) can be turned into a corpus with `quenya_tts.prepare_corpus`. It pairs `<name>.mp3` with `<name>.txt` (one line of Quenya per line), cuts each recording into one clip per line with the comparison tool's phone recogniser, leaves out lines it hears too differently from the text, and writes the clips and `transcript.txt`:
@@ -62,7 +62,7 @@ Recordings of whole texts (a poem, a prayer) can be turned into a corpus with `q
 python -m quenya_tts.prepare_corpus --audio recordings/ --texts texts/ --name Glaemscrafu
 ```
 
-To record a new voice, [recording/](recording) has a 2,500-line script (about 90 minutes of speech), a recorder that saves one file per line (`python -m quenya_tts.record`), and a guide on how to read. `prepare_corpus --script recording/script.tsv --speaker <name>` turns those files into a corpus.
+To record a new voice, [recording/](recording) has a 2,500-line script (about 90 minutes of speech), a recorder that saves one file per line (`python -m quenya_tts.record`), and a guide on how to read. `prepare_corpus --script recording/script.tsv --speaker <name>` turns those files into a corpus. Volunteers record in their browser on the [recording site](https://github.com/brunopacheco1/quenya-voices) instead.
 
 Training needs a CUDA GPU:
 
