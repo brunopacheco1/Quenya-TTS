@@ -1,5 +1,5 @@
 """
-Reads Quenya text aloud and saves it as a WAV file.
+Reads Quenya text aloud: plays it (--play), saves it as a WAV file (-o), or both.
 
 Without a Quenya checkpoint it uses the pretrained multilingual ToucanTTS model (downloaded from
 Hugging Face on first use), which has never heard Quenya: the pronunciation comes from the quenya_g2p
@@ -9,6 +9,7 @@ rules, the voice and rhythm from the languages the model was trained on. After f
 Examples, from the repository root:
     python -m quenya_tts.read "Elen síla lúmenn' omentielvo" -o audios/elen_sila.wav
     python -m quenya_tts.read --file chapter.txt -o audios/chapter.wav
+    python -m quenya_tts.read "sinyë" --play            # only play it, no file
     python -m quenya_tts.read "Namárië" --phonemes   # only print the phonemes, no audio
 """
 
@@ -80,7 +81,9 @@ def main():
     parser = argparse.ArgumentParser(description="Read Quenya text aloud with IMS-Toucan.")
     parser.add_argument("text", nargs="?", help="Quenya text to read")
     parser.add_argument("--file", help="read the text from this file instead (one sentence or line per line)")
-    parser.add_argument("-o", "--output", default="audios/quenya.wav", help="where to save the WAV file")
+    parser.add_argument("-o", "--output", default=None,
+                        help="where to save the WAV file (default: audios/quenya.wav, or no file with --play)")
+    parser.add_argument("--play", action="store_true", help="play the audio (needs sounddevice)")
     parser.add_argument("--model", default=None, help="ToucanTTS checkpoint (.pt); default: the pretrained multilingual model")
     parser.add_argument("--speaker", default=None, help="a WAV file whose voice the model should imitate")
     parser.add_argument("--speed", type=float, default=1.0, help="duration scaling: above 1 is slower, below 1 faster")
@@ -111,7 +114,9 @@ def main():
     if args.phonemes:
         return
 
-    output = os.path.abspath(args.output)
+    if not args.output and not args.play:
+        args.output = "audios/quenya.wav"
+    output = os.path.abspath(args.output) if args.output else None
     model = os.path.abspath(args.model) if args.model else None
     speaker = os.path.abspath(args.speaker) if args.speaker else None
 
@@ -130,9 +135,14 @@ def main():
                                 pitch_variance=args.pitch_variance, creativity=args.creativity)
         wav = torch.cat((wav, torch.tensor(spoken).cpu(), silence), 0)
     wav = torch.cat((wav, padding), 0)
-    os.makedirs(os.path.dirname(output), exist_ok=True)
-    soundfile.write(file=output, data=float2pcm(wav), samplerate=sr, subtype="PCM_16")
-    print(f"Saved {args.output}")
+    if output:
+        os.makedirs(os.path.dirname(output), exist_ok=True)
+        soundfile.write(file=output, data=float2pcm(wav), samplerate=sr, subtype="PCM_16")
+        print(f"Saved {args.output}")
+    if args.play:
+        import sounddevice
+        sounddevice.play(wav.numpy(), sr)
+        sounddevice.wait()
 
 
 if __name__ == "__main__":
