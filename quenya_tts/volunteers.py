@@ -32,6 +32,7 @@ import csv
 import datetime
 import json
 import os
+import shlex
 import shutil
 
 # The site's defaults (site.json in quenya-voices). The values the site saved in stats/milestones.json win.
@@ -225,8 +226,9 @@ def main():
             parser.exit(1, f"Training is not allowed yet: {reason}.\n")
     downloaded = download(bucket, args.output, args.script)
     for folder, speaker, _, recording, good in downloaded:
-        print(f"python -m quenya_tts.prepare_corpus --audio {folder} --script {args.script} "
-              f"--speaker {speaker} --name Volunteers")
+        # quoted, so that the printed command is safe to run whatever the names in the bucket
+        print(shlex.join(["python", "-m", "quenya_tts.prepare_corpus", "--audio", str(folder), "--script",
+                          str(args.script), "--speaker", str(speaker), "--name", "Volunteers"]))
     print(f"{len(downloaded)} accepted recordings in {args.output} (credits: volunteers.tsv)")
 
 
