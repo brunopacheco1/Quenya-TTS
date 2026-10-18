@@ -51,6 +51,9 @@ def level_warning(wave, samplerate):
     end = wave[-int(0.1 * samplerate):]
     if np.sqrt(np.mean(end ** 2)) > 0.03 * peak:
         return "it still sounds at the very end, so the last sound may be cut off. Redo it and wait a moment before Enter."
+    start = wave[:int(0.1 * samplerate)]
+    if np.sqrt(np.mean(start ** 2)) > 0.05 * peak:
+        return "it already sounds at the very start, so the first sound may be cut off. Redo it and wait a moment after Enter."
     return None
 
 

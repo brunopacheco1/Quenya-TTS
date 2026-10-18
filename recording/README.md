@@ -56,7 +56,8 @@ loads the model), records while you read (Enter to start, Enter to stop), lets y
 redo it, and saves it as `s01_001.wav`, `s01_002.wav`, ... Lines already
 recorded are skipped, so you can stop at any time and go on later with the same command. It keeps
 recording for half a second after you press Enter, so the last sound is not cut off, and warns you when a
-take is too loud, too quiet or still sounding at its very end. Use
+take is too loud, too quiet, or already sounding at its very start or still sounding at its very end (wait a
+moment after Enter before you speak, and after you finish before you press Enter). Use
 `--device` to pick the microphone (`python -m sounddevice` lists them).
 
 Any other tool works too, as long as each line ends up in its own file named by its id.
