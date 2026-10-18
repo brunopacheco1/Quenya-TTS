@@ -34,8 +34,10 @@ the book gets new chapters), see [build_script.py](build_script.py).
 - Read the way you would speak it in the book: calm, clear, conversational. Not chanting, not acting.
 - Pronounce it as Third Age Quenya (Appendix E): stress on the first syllable of two-syllable words; in longer
   words on the second-to-last if it is long (long vowel, diphthong, or two consonants after it), otherwise on
-  the third-to-last; long vowels long, double consonants long, *r* trilled. If unsure, check
-  `python -m quenya_tts.read "word" --phonemes`.
+  the third-to-last; long vowels long, double consonants long, *r* trilled. If unsure, press `l` in the
+  recorder to hear the line, or run `python -m quenya_tts.read "word" --play` (add `--phonemes` to only see the sounds). The TTS voice follows the
+  same rules for stress, length and sounds, but it is not trained on Quenya yet: copy what it pronounces, not
+  how its voice sounds.
 - Keep the same voice, speed and distance in every session. Sessions of 100 lines (about 20 to 30 minutes)
   with breaks work better than long ones; stop when your voice gets tired.
 - A slip is fine: redo the line. Leave a short silence before and after each line.
@@ -49,9 +51,12 @@ With the reader's requirements installed:
 python -m quenya_tts.record --session 1 -o ~/recordings
 ```
 
-It shows each line with its meaning, records while you read (Enter to start, Enter to stop), lets you
-play the take back or redo it, and saves it as `s01_001.wav`, `s01_002.wav`, ... Lines already
-recorded are skipped, so you can stop at any time and go on later with the same command. Use
+It shows each line with its meaning, can play the line read by the TTS first (`l`; the first time
+loads the model), records while you read (Enter to start, Enter to stop), lets you play the take back or
+redo it, and saves it as `s01_001.wav`, `s01_002.wav`, ... Lines already
+recorded are skipped, so you can stop at any time and go on later with the same command. It keeps
+recording for half a second after you press Enter, so the last sound is not cut off, and warns you when a
+take is too loud, too quiet or still sounding at its very end. Use
 `--device` to pick the microphone (`python -m sounddevice` lists them).
 
 Any other tool works too, as long as each line ends up in its own file named by its id.
