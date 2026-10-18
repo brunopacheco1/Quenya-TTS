@@ -32,6 +32,8 @@ pip install -r requirements.txt
 python -m quenya_tts.read "Elen síla lúmenn' omentielvo" -o audios/elen_sila.wav
 ```
 
+Add `--play` to hear it; with `--play` and no `-o` it only plays and saves no file: `python -m quenya_tts.read "sinyë" --play`.
+
 On macOS, if phonemizer cannot find espeak-ng, set `PHONEMIZER_ESPEAK_LIBRARY=/opt/homebrew/lib/libespeak-ng.dylib`.
 
 The reader uses the pretrained multilingual Toucan model, downloaded from Hugging Face on first use. That model has never heard Quenya, so the pronunciation follows our rules but the voice and rhythm are generic.
