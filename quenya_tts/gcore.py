@@ -1,5 +1,5 @@
 """
-Trains the public model on a Gcore GPU machine (Sines, Portugal), from your own computer, and makes sure the
+Trains the public model on a Gcore GPU machine in the EU, from your own computer, and makes sure the
 machine never outlives the run: it is created for one training and deleted afterwards, with its disk and IP,
 whether training worked, failed or was interrupted.
 
@@ -14,7 +14,7 @@ voice), logs and watermarked samples come back here, plus the checkpoint with --
 volunteer's voice: keep it on an encrypted disk, never publish it).
 
     pip install gcore
-    export GCORE_API_KEY=...  GCORE_CLOUD_PROJECT_ID=...  GCORE_CLOUD_REGION_ID=...   # region: Sines-3
+    export GCORE_API_KEY=...  GCORE_CLOUD_PROJECT_ID=...  GCORE_CLOUD_REGION_ID=...   # an EU region
     export R2_ACCOUNT_ID=...  R2_ACCESS_KEY_ID=...  R2_SECRET_ACCESS_KEY=...          # read-only R2 token
     python -m quenya_tts.gcore flavors                                  # GPU machines and prices in the region
     python -m quenya_tts.gcore train --ssh-key-name my-mac -o ~/quenya-runs --steps 20000 --max-hours 6
@@ -41,6 +41,23 @@ SETUP_MINUTES = 30
 WRAP_UP_MINUTES = 20
 API = "https://api.gcore.com"
 RUN_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cloud_run.sh")
+
+
+# The Privacy Notice promises volunteers that their recordings stay in the European Union: the script refuses
+# any other region. ISO codes and English names, as Gcore may report either.
+EU_COUNTRIES = {
+    "AT": "Austria", "BE": "Belgium", "BG": "Bulgaria", "HR": "Croatia", "CY": "Cyprus", "CZ": "Czechia",
+    "DK": "Denmark", "EE": "Estonia", "FI": "Finland", "FR": "France", "DE": "Germany", "GR": "Greece",
+    "HU": "Hungary", "IE": "Ireland", "IT": "Italy", "LV": "Latvia", "LT": "Lithuania", "LU": "Luxembourg",
+    "MT": "Malta", "NL": "Netherlands", "PL": "Poland", "PT": "Portugal", "RO": "Romania", "SK": "Slovakia",
+    "SI": "Slovenia", "ES": "Spain", "SE": "Sweden",
+}
+
+
+def in_eu(country):
+    """Whether a Gcore region's country (ISO code or English name) is in the European Union."""
+    country = (country or "").strip().lower()
+    return any(country in (code.lower(), name.lower()) for code, name in EU_COUNTRIES.items())
 
 
 def pick_flavor(flavors, gpu="H100", count=1):
@@ -182,6 +199,10 @@ def train(args, client):
     for name in ("R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"):
         if not os.environ.get(name):
             sys.exit(f"Set {name} (a read-only R2 token for the recordings bucket).")
+    region = client.cloud.regions.get(client.cloud_region_id)
+    if not in_eu(region.country):
+        sys.exit(f"{region.display_name} ({region.country}) is outside the European Union: volunteer recordings "
+                 "may only be trained on in the EU. Set GCORE_CLOUD_REGION_ID to an EU region.")
     flavor = args.flavor or pick_flavor(list(client.cloud.gpu_virtual.clusters.flavors.list(hide_disabled=True)),
                                         args.gpu)
     image = args.image or pick_image(list(client.cloud.gpu_virtual.clusters.images.list()))

@@ -58,6 +58,15 @@ class PickTest(unittest.TestCase):
         self.assertIsNone(gcore.pick_image([image("deb", "debian", "13")]))
 
 
+class RegionTest(unittest.TestCase):
+
+    def test_only_eu_regions(self):
+        for country in ("LU", "Luxembourg", "pt", "Finland"):
+            self.assertTrue(gcore.in_eu(country), country)
+        for country in ("GB", "United Kingdom", "KR", "South Korea", "", None):
+            self.assertFalse(gcore.in_eu(country), country)
+
+
 class ScriptsTest(unittest.TestCase):
 
     def test_machine_powers_off_at_the_limit_from_boot(self):

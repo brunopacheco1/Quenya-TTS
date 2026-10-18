@@ -74,18 +74,18 @@ python -m quenya_tts.read "Namárië" --model Models/ToucanTTS_Quenya/best.pt -o
 
 ### Training on volunteer recordings: Gcore
 
-The public model is trained on a Gcore GPU machine in the EU (Sines, Portugal), which `quenya_tts.gcore` creates for one run and deletes afterwards, with its disk and IP, whether training worked, failed or was stopped. The volunteer recordings go straight from the recording site's storage to that machine, so they are deleted with it and fetched again for every run: volunteers who asked for erasure are left out automatically. Only the release (artificial voice), logs and watermarked samples come back.
+The public model is trained on a Gcore GPU machine in the EU, which `quenya_tts.gcore` creates for one run and deletes afterwards, with its disk and IP, whether training worked, failed or was stopped. The volunteer recordings go straight from the recording site's storage to that machine, so they are deleted with it and fetched again for every run: volunteers who asked for erasure are left out automatically. Only the release (artificial voice), logs and watermarked samples come back.
 
 ```
 pip install gcore
-export GCORE_API_KEY=...  GCORE_CLOUD_PROJECT_ID=...  GCORE_CLOUD_REGION_ID=...   # Gcore: Profile > API tokens
+export GCORE_API_KEY=...  GCORE_CLOUD_PROJECT_ID=...  GCORE_CLOUD_REGION_ID=...   # an EU region
 export R2_ACCOUNT_ID=...  R2_ACCESS_KEY_ID=...  R2_SECRET_ACCESS_KEY=...          # read-only R2 token
 python -m quenya_tts.gcore flavors                                                # GPU machines and prices
 python -m quenya_tts.gcore train --ssh-key-name my-mac -o ~/quenya-runs --max-hours 6
 python -m quenya_tts.gcore cleanup                                                # anything left behind?
 ```
 
-Every run has a hard time limit (`--max-hours`, 6 by default; about €17 at most on one H100). At the limit the script stops the run and deletes the machine. The machine also powers itself off at the limit, even if your computer sleeps or loses its connection; with `--watchdog` it deletes itself too, using a second API key (`GCORE_WATCHDOG_API_KEY`, give it an expiry date) that is kept only on the machine. `cleanup` lists any Quenya-TTS machine still there and deletes it with `--yes`. Before the first run: add your SSH key in Gcore (Cloud > SSH keys), check that the default security group allows SSH (port 22), and sign Gcore's data processing agreement.
+The script refuses regions outside the EU, as the volunteers were promised. Every run has a hard time limit (`--max-hours`, 6 by default; about €17 at most on one H100). At the limit the script stops the run and deletes the machine. The machine also powers itself off at the limit, even if your computer sleeps or loses its connection; with `--watchdog` it deletes itself too, using a second API key (`GCORE_WATCHDOG_API_KEY`, give it an expiry date) that is kept only on the machine. `cleanup` lists any Quenya-TTS machine still there and deletes it with `--yes`. Before the first run: add your SSH key in Gcore (Cloud > SSH keys), check that the default security group allows SSH (port 22), and sign Gcore's data processing agreement.
 
 ### Development: Kaggle
 
