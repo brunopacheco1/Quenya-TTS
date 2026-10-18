@@ -46,6 +46,19 @@ def _model(kind):
     return _models[kind]
 
 
+def _no_compile():
+    """
+    AudioSeal 0.2 runs its models through torch.compile, which needs a C++ toolchain and breaks on some setups
+    (macOS with Homebrew Python, among others). Marking a few seconds of speech does not need it.
+    """
+    try:
+        from audioseal.libs.moshi.utils.compile import no_compile
+        return no_compile()
+    except ImportError:
+        import contextlib
+        return contextlib.nullcontext()
+
+
 def _resample(x, rate, target):
     import torchaudio
     return x if rate == target else torchaudio.functional.resample(x, rate, target)
@@ -63,7 +76,7 @@ def mark(wave, sr):
     import torch
     x = torch.as_tensor(np.asarray(wave, dtype=np.float32)).reshape(1, 1, -1)
     message = torch.tensor([to_bits(MESSAGE)])
-    with torch.no_grad():
+    with torch.no_grad(), _no_compile():
         watermark = _model("generator").get_watermark(_resample(x, sr, AUDIOSEAL_RATE), message=message)
         watermark = _resample(watermark, AUDIOSEAL_RATE, sr)
     return np.asarray(wave, dtype=np.float32) + fit_length(watermark.reshape(-1).numpy(), x.shape[-1])
@@ -73,7 +86,7 @@ def detect(wave, sr):
     """Returns (probability that the audio is watermarked, whether the message is Quenya-TTS's)."""
     import torch
     x = torch.as_tensor(np.asarray(wave, dtype=np.float32)).reshape(1, 1, -1)
-    with torch.no_grad():
+    with torch.no_grad(), _no_compile():
         probability, message = _model("detector").detect_watermark(_resample(x, sr, AUDIOSEAL_RATE))
     return float(probability[0]), from_bits(message[0].tolist()) == MESSAGE
 
