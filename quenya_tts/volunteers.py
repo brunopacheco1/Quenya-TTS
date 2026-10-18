@@ -1,8 +1,8 @@
 """
-Connects the volunteer recording site (recording/web) with training: downloads the accepted recordings, and
+Connects the volunteer recording site (https://github.com/brunopacheco1/quenya-voices) with training: downloads the accepted recordings, and
 uploads the reference readings that the site's Listen button plays.
 
-The site keeps everything in a Cloudflare R2 bucket (see recording/web/README.md). This script reads it through
+The site keeps everything in a Cloudflare R2 bucket (see the quenya-voices README). This script reads it through
 R2's S3-compatible API, with an API token you create in the Cloudflare dashboard (R2 > Manage API tokens):
 
     export R2_ACCOUNT_ID=...  R2_ACCESS_KEY_ID=...  R2_SECRET_ACCESS_KEY=...
@@ -19,8 +19,9 @@ them. Volunteers who asked for erasure are deleted from the download folder on e
 every training.
 
 --for-training enforces the promise on the site's Privacy Notice: no training before the accepted speech of
-all volunteers reaches the minimum (site.json: minimum_training_minutes), and none in the waiting period after
-it first did (training_wait_days).
+all volunteers reaches the minimum (minimum_training_minutes in the site's site.json), and none in the waiting
+period after it first did (training_wait_days). The site records both in stats/milestones.json when the minimum
+is reached; the defaults below are only used to report progress before that.
 
 Upload reference readings for Listen (needs the reader's requirements):
 
@@ -34,7 +35,8 @@ import json
 import os
 import shutil
 
-SITE_JSON = os.path.join(os.path.dirname(__file__), "..", "recording", "web", "site.json")
+# The site's defaults (site.json in quenya-voices). The values the site saved in stats/milestones.json win.
+SITE = {"minimum_training_minutes": 60, "training_wait_days": 30}
 SCRIPT_TSV = os.path.join(os.path.dirname(__file__), "..", "recording", "script.tsv")
 
 
@@ -89,15 +91,17 @@ def accepted_seconds(bucket):
     return totals
 
 
-def training_gate(total_seconds, milestones, site, now):
+def training_gate(total_seconds, milestones, now, defaults=SITE):
     """Returns None if training is allowed now, otherwise why not."""
-    minimum = site["minimum_training_minutes"]
+    milestones = milestones or {}
+    minimum = milestones.get("minimum_minutes", defaults["minimum_training_minutes"])
     if total_seconds < minimum * 60:
         return f"only {total_seconds / 60:.1f} of the {minimum} minutes of accepted speech needed before any training"
-    reached = (milestones or {}).get("minimum_reached_at")
+    reached = milestones.get("minimum_reached_at")
     if not reached:
         return "the site has not recorded when the minimum was reached yet (it does so when a reviewer accepts a recording)"
-    earliest = parse_time(reached) + datetime.timedelta(days=site["training_wait_days"])
+    wait = milestones.get("training_wait_days", defaults["training_wait_days"])
+    earliest = parse_time(reached) + datetime.timedelta(days=wait)
     if now < earliest:
         return f"the waiting period after the minimum was reached ends on {earliest.date().isoformat()}"
     return None
@@ -216,10 +220,8 @@ def main():
         return
     bucket = Bucket.from_environment(args.bucket)
     if args.for_training:
-        with open(SITE_JSON, encoding="utf8") as f:
-            site = json.load(f)
         total = sum(accepted_seconds(bucket).values())
-        reason = training_gate(total, bucket.read_json("stats/milestones.json"), site,
+        reason = training_gate(total, bucket.read_json("stats/milestones.json"),
                                datetime.datetime.now(datetime.timezone.utc))
         if reason:
             parser.exit(1, f"Training is not allowed yet: {reason}.\n")

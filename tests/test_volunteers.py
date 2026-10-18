@@ -75,11 +75,17 @@ class TrainingGateTest(unittest.TestCase):
 
     def test_waits_for_the_minimum_and_then_the_waiting_period(self):
         now = datetime.datetime(2026, 12, 1, tzinfo=UTC)
-        self.assertIn("only 59.0 of the 60", volunteers.training_gate(59 * 60, None, SITE, now))
-        self.assertIn("has not recorded", volunteers.training_gate(3600, None, SITE, now))
+        self.assertIn("only 59.0 of the 60", volunteers.training_gate(59 * 60, None, now, SITE))
+        self.assertIn("has not recorded", volunteers.training_gate(3600, None, now, SITE))
         milestones = {"minimum_reached_at": "2026-11-15T00:00:00Z"}
-        self.assertIn("2026-12-15", volunteers.training_gate(3600, milestones, SITE, now))
-        self.assertIsNone(volunteers.training_gate(3600, milestones, SITE, datetime.datetime(2026, 12, 16, tzinfo=UTC)))
+        self.assertIn("2026-12-15", volunteers.training_gate(3600, milestones, now, SITE))
+        self.assertIsNone(volunteers.training_gate(3600, milestones, datetime.datetime(2026, 12, 16, tzinfo=UTC), SITE))
+
+    def test_uses_the_rules_the_site_saved_with_the_milestone(self):
+        now = datetime.datetime(2026, 12, 1, tzinfo=UTC)
+        milestones = {"minimum_reached_at": "2026-11-15T00:00:00Z", "minimum_minutes": 120, "training_wait_days": 10}
+        self.assertIn("of the 120 minutes", volunteers.training_gate(3600, milestones, now))
+        self.assertIsNone(volunteers.training_gate(120 * 60, milestones, now))
 
     def test_counts_accepted_seconds_from_the_markers(self):
         self.assertEqual(volunteers.accepted_seconds(accepted_site()), {VOLUNTEER: 4.0})

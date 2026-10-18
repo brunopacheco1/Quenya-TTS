@@ -63,8 +63,8 @@ Any other tool works too, as long as each line ends up in its own file named by 
 
 ### In the browser, for volunteers
 
-Volunteers can record in their browser instead, with nothing to install, on the recording site in
-[web/](web/README.md): invitation and sign-in, consent, a microphone check, automatic quality checks on every
+Volunteers can record in their browser instead, with nothing to install, on the recording site
+([quenya-voices](https://github.com/brunopacheco1/quenya-voices)): invitation and sign-in, consent, a microphone check, automatic quality checks on every
 take, submissions and review. `python -m quenya_tts.volunteers download` brings the accepted recordings back here
 for `prepare_corpus`.
 
