@@ -51,7 +51,9 @@ python -m quenya_tts.record --session 1 -o ~/recordings
 
 It shows each line with its meaning, records while you read (Enter to start, Enter to stop), lets you
 play the take back or redo it, and saves it as `s01_001.wav`, `s01_002.wav`, ... Lines already
-recorded are skipped, so you can stop at any time and go on later with the same command. Use
+recorded are skipped, so you can stop at any time and go on later with the same command. It keeps
+recording for half a second after you press Enter, so the last sound is not cut off, and warns you when a
+take is too loud, too quiet or still sounding at its very end. Use
 `--device` to pick the microphone (`python -m sounddevice` lists them).
 
 Any other tool works too, as long as each line ends up in its own file named by its id.

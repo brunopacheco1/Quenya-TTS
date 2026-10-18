@@ -62,5 +62,19 @@ class SessionTest(unittest.TestCase):
             self.assertEqual(session_lines(path, 2), [("s02_001", "Mára.", "good")])
 
 
+class TakeCheckTest(unittest.TestCase):
+
+    def test_drops_startup_zeros_and_flags_cut_endings(self):
+        import numpy as np
+        from quenya_tts.record import level_warning, strip_startup
+        sr = 1000
+        voice = 0.5 * np.sin(np.linspace(0.1, 200, sr))
+        fading = np.concatenate([voice, np.zeros(sr // 2) + 0.001])
+        self.assertEqual(len(strip_startup(np.concatenate([np.zeros(300), fading]))), len(fading))
+        self.assertIsNone(level_warning(fading, sr))
+        self.assertIn("cut off", level_warning(voice, sr))
+        self.assertIn("clipped", level_warning(np.ones(sr), sr))
+
+
 if __name__ == "__main__":
     unittest.main()

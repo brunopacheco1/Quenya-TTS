@@ -30,12 +30,25 @@ def session_lines(script_path, session):
                 if row["id"].startswith(prefix)]
 
 
-def level_warning(wave):
+TAIL_SECONDS = 0.5  # keep recording this long after Enter, so the last sound is not cut off
+
+
+def strip_startup(wave):
+    """Drops the digital silence (exact zeros) some microphones send while the stream starts."""
+    nonzero = (wave != 0).nonzero()[0]
+    return wave[nonzero[0]:] if len(nonzero) else wave
+
+
+def level_warning(wave, samplerate):
+    import numpy as np
     peak = float(abs(wave).max()) if len(wave) else 0.0
     if peak >= 0.99:
         return "too loud: it clipped. Move back from the microphone or turn the input level down, then redo it."
     if peak < 0.1:
         return "very quiet. Move closer to the microphone or turn the input level up, then redo it."
+    end = wave[-int(0.1 * samplerate):]
+    if np.sqrt(np.mean(end ** 2)) > 0.03 * peak:
+        return "it still sounds at the very end, so the last sound may be cut off. Redo it and wait a moment before Enter."
     return None
 
 
@@ -44,11 +57,12 @@ def record_take(sd, samplerate, device):
     with sd.InputStream(samplerate=samplerate, channels=1, dtype="float32", device=device,
                         callback=lambda data, *_: frames.put(data.copy())):
         input("  recording... press Enter to stop ")
+        sd.sleep(int(TAIL_SECONDS * 1000))
     import numpy as np
     chunks = []
     while not frames.empty():
         chunks.append(frames.get())
-    return np.concatenate(chunks)[:, 0] if chunks else np.zeros(0, dtype="float32")
+    return strip_startup(np.concatenate(chunks)[:, 0]) if chunks else np.zeros(0, dtype="float32")
 
 
 def main():
@@ -77,7 +91,7 @@ def main():
         while True:
             wave = record_take(sd, args.samplerate, args.device)
             print(f"  {len(wave) / args.samplerate:.1f} s")
-            warning = level_warning(wave)
+            warning = level_warning(wave, args.samplerate)
             if warning:
                 print("  " + warning)
             action = input("  Enter = keep, p = play, r = redo, q = quit: ").strip().lower()
