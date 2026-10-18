@@ -14,8 +14,7 @@ Download what reviewers accepted (only the lines they marked good), then build t
     python -m quenya_tts.volunteers download -o ~/volunteers --for-training   # refuses until training is allowed
 
 Each accepted recording lands in its own folder, <volunteer>/<recording>/<line id>.wav, and the command prints the
-prepare_corpus call for each. volunteers.tsv says how each volunteer shares their recordings and how to credit
-them. Volunteers who asked for erasure are deleted from the download folder on every run, so run it before
+prepare_corpus call for each. volunteers.tsv says how to credit each volunteer. Volunteers who asked for erasure are deleted from the download folder on every run, so run it before
 every training.
 
 --for-training enforces the promise on the site's Privacy Notice: no training before the accepted speech of
@@ -178,10 +177,9 @@ def write_volunteers(output, downloaded):
 
 
 def references(args):
-    import soundfile
-
     from quenya_tts.read import load_reader, synthesize
     from quenya_tts.record import session_lines
+    from quenya_tts.watermark import write_generated
 
     lines = session_lines(args.script, args.session)
     os.makedirs(args.output, exist_ok=True)
@@ -191,7 +189,7 @@ def references(args):
         path = os.path.join(args.output, f"{line_id}.wav")
         if not os.path.exists(path):
             wave, sr = synthesize(tts, phonemize(text))
-            soundfile.write(path, wave, sr, subtype="PCM_16")
+            write_generated(path, wave, sr)
         if bucket:
             with open(path, "rb") as f:
                 bucket.write(f"reference/{line_id}.wav", f.read(), "audio/wav")
@@ -229,7 +227,7 @@ def main():
     for folder, speaker, _, recording, good in downloaded:
         print(f"python -m quenya_tts.prepare_corpus --audio {folder} --script {args.script} "
               f"--speaker {speaker} --name Volunteers")
-    print(f"{len(downloaded)} accepted recordings in {args.output} (credits and sharing: volunteers.tsv)")
+    print(f"{len(downloaded)} accepted recordings in {args.output} (credits: volunteers.tsv)")
 
 
 if __name__ == "__main__":

@@ -9,7 +9,7 @@ import os
 
 from quenya_tts.toucan import CORPORA_DIR
 
-# Corpora whose licence allows publishing a model trained on them (CC-BY or CC0)
+# Corpora whose terms allow publishing a model trained on them: the volunteer recordings, given for training
 PUBLIC_CORPORA = ["Volunteers"]
 # The thesis recordings: Atanquesta is CC BY-NC-SA 4.0, so models trained on these are for experiments only
 EXPERIMENTAL_CORPORA = ["Atanquesta", "Glaemscrafu"]

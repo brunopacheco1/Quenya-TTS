@@ -338,6 +338,7 @@ def main():
     from quenya_g2p import to_ipa
     from quenya_tts.read import load_reader
     from quenya_tts.read import synthesize
+    from quenya_tts.watermark import write_generated
 
     with open(args.text, encoding="utf8") as f:
         lines = [line.strip() for line in f if line.strip()]
@@ -387,7 +388,7 @@ def main():
         ours = librosa.effects.trim(ours, top_db=args.top_db)[0]
 
         soundfile.write(os.path.join(args.output, f"line{number:02d}_reference.wav"), ref_audio, SR)
-        soundfile.write(os.path.join(args.output, f"line{number:02d}_quenya_tts.wav"), ours, SR)
+        write_generated(os.path.join(args.output, f"line{number:02d}_quenya_tts.wav"), ours, SR)
 
         expected_ipa = to_ipa(line)
         expected = ipa_to_phones(expected_ipa)

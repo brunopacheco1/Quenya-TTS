@@ -3,8 +3,9 @@ Fine-tunes the pretrained multilingual ToucanTTS model on Quenya.
 
 Transcripts are converted to phonemes with quenya_g2p and given to Toucan as phoneme input, with the
 Finnish language embedding, so Toucan itself is used unmodified. The public model is trained only on the
-volunteer recordings (CC-BY or CC0); --experimental also uses Atanquesta and Glaemscrafu, whose licences do
-not allow publishing the result. Toucan's progress plots show its Finnish example sentence, since it has
+volunteer recordings, which volunteers gave for training; --experimental also uses Atanquesta and Glaemscrafu,
+whose licences do not allow publishing the result. The model folder gets a training.json saying which corpora
+were used; quenya_tts.publish refuses to release a model trained on anything but the public corpora. Toucan's progress plots show its Finnish example sentence, since it has
 no Quenya one.
 
 Run from the repository root, on a machine with a CUDA GPU:
@@ -14,8 +15,23 @@ Run from the repository root, on a machine with a CUDA GPU:
 """
 
 import argparse
+import json
 import os
 import time
+
+
+def write_training_info(save_dir, corpora, public):
+    """Records in the model folder which corpora the model was trained on (all of them, over resumed runs)."""
+    path = os.path.join(save_dir, "training.json")
+    info = {"corpora": [], "public": True, "runs": []}
+    if os.path.exists(path):
+        with open(path, encoding="utf8") as f:
+            info = json.load(f)
+    info["corpora"] = sorted(set(info["corpora"]) | set(corpora))
+    info["public"] = info["public"] and public
+    info["runs"].append({"started_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "corpora": list(corpora)})
+    with open(path, "w", encoding="utf8") as f:
+        json.dump(info, f, indent=2)
 
 
 def main():
@@ -63,6 +79,7 @@ def main():
 
     device = torch.device("cuda")
     os.makedirs(save_dir, exist_ok=True)
+    write_training_info(save_dir, corpora, public)
 
     datasets = [prepare_tts_corpus(transcript_dict=transcripts[name],
                                    corpus_dir=os.path.join(PREPROCESSING_DIR, "Quenya_" + name),

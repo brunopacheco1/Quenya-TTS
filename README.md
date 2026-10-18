@@ -72,7 +72,22 @@ python -m quenya_tts.train --gpu_id 0 --corpora Glaemscrafu --steps 500   # a sh
 python -m quenya_tts.read "Namárië" --model Models/ToucanTTS_Quenya/best.pt -o audios/namarie.wav
 ```
 
-Without a GPU of your own, [notebooks/kaggle_train.ipynb](notebooks/kaggle_train.ipynb) runs the whole thing (install, corpus, training, listening) on Kaggle's free GPU.
+Without a GPU of your own, [notebooks/kaggle_train.ipynb](notebooks/kaggle_train.ipynb) runs the whole thing on Kaggle's free GPU: it fetches the volunteer recordings straight from the recording site's storage with a read-only token kept as a Kaggle Secret, trains, releases and listens. Everything with a volunteer's voice in it stays on Kaggle's temporary disk, which is deleted when the session ends.
+
+Training checkpoints are private: Toucan stores the voice of a training clip in them as the default voice. Never share `best.pt` or any other checkpoint; release models only with `quenya_tts.publish`.
+
+## Releasing a model
+
+Volunteers record for training only, and are promised that a released model does not speak with their voice:
+
+```
+python -m quenya_tts.volunteers download -o ~/volunteers
+python -m quenya_tts.publish Models/ToucanTTS_Quenya/best.pt --voices ~/volunteers -o release/
+```
+
+`publish` refuses a model trained on anything but the volunteer recordings, gives it an artificial voice from Toucan's voice generator, checks that this voice does not sound like any volunteer, and writes the model with the [model card](MODEL_CARD.md), the [model licence](MODEL_LICENSE.md) (Open RAIL-M with use restrictions: no imitating real people) and the volunteers' credits.
+
+Everything the reader produces carries an inaudible AudioSeal watermark and an "AI-generated" label in the WAV metadata, as Article 50 of the EU AI Act requires for synthetic audio. Check a file with `python -m quenya_tts.watermark check file.wav`. `--no-watermark` exists only for audio that never leaves your computer.
 
 ## Master's thesis (2024)
 
