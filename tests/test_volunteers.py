@@ -1,5 +1,6 @@
-"""Tests for quenya_tts.volunteers with an in-memory bucket (no Cloudflare account needed)."""
+"""Tests for quenya_tts.volunteers with an in-memory, encrypted bucket (no storage account needed)."""
 
+import base64
 import datetime
 import json
 import os
@@ -45,10 +46,43 @@ class FakeClient:
         return {"Metadata": self.objects[Key][1]}
 
 
+KEY = bytes([9] * 32)
+
+
 def bucket_with(objects):
-    encoded = {key: (json.dumps(value).encode() if isinstance(value, dict) else value, meta)
+    """Stores the objects encrypted, the way the site stores them."""
+    def sealed_meta(meta):
+        return {"sealed": base64.b64encode(volunteers.seal(KEY, json.dumps(meta).encode())).decode()}
+    encoded = {key: (volunteers.seal(KEY, json.dumps(value).encode() if isinstance(value, dict) else value),
+                     sealed_meta(meta))
                for key, (value, meta) in objects.items()}
-    return volunteers.Bucket("test", FakeClient(encoded))
+    return volunteers.Bucket("test", FakeClient(encoded), KEY)
+
+
+class EncryptionTest(unittest.TestCase):
+
+    def test_reads_what_the_site_encrypted(self):
+        # made by quenya-voices src/storage.js seal(), with the key of 32 bytes of 9
+        body = base64.b64decode("UVZFMSP5bceZ1bR0xnCsPnHpPrrty/ELcz6magHDi2mdgSM0SumXN0mt")
+        meta = base64.b64decode("UVZFMSfqug6N9HQQCy+mMjXT/Vjs6HXIMQgCQmQbFgZ3G47FCMdDaLQA6/HixnhE6lpgtWq2+fIrrp/3wmiMkQ==")
+        self.assertEqual(volunteers.unseal(KEY, body).decode(), "Elen síla")
+        self.assertEqual(json.loads(volunteers.unseal(KEY, meta)), {"seconds": "3.25", "name": "Ána"})
+
+    def test_wrong_key_or_plain_data_is_refused(self):
+        sealed = volunteers.seal(KEY, b"data")
+        with self.assertRaises(Exception):
+            volunteers.unseal(bytes(32), sealed)
+        with self.assertRaises(ValueError):
+            volunteers.unseal(KEY, b"RIFF....plain wav")
+
+    def test_key_must_be_32_bytes(self):
+        self.assertEqual(volunteers.storage_key(base64.b64encode(KEY).decode()), KEY)
+        with self.assertRaises(ValueError):
+            volunteers.storage_key("")
+
+    def test_sizes_are_those_of_the_decrypted_objects(self):
+        bucket = bucket_with({"a/b": (b"12345", {})})
+        self.assertEqual(bucket.keys("a/"), [("a/b", 5)])
 
 
 VOLUNTEER = "0123456789abcdef"

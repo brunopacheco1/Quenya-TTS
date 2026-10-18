@@ -9,13 +9,14 @@ Every run has a time limit (--max-hours, 6 by default), enforced three times:
 - with --watchdog (a second Gcore API key kept only on the machine): the machine also deletes itself at the limit.
 `cleanup` lists and deletes any Quenya-TTS machine that is still there, in case all of that failed.
 
-The volunteer recordings go straight from R2 to the machine and are deleted with it; only the release (artificial
+The volunteer recordings go straight from the site's storage to the machine and are deleted with it; only the release (artificial
 voice), logs and watermarked samples come back here, plus the checkpoint with --keep-checkpoint (it holds a
 volunteer's voice: keep it on an encrypted disk, never publish it).
 
     pip install gcore
     export GCORE_API_KEY=...  GCORE_CLOUD_PROJECT_ID=...  GCORE_CLOUD_REGION_ID=...   # an EU region
-    export R2_ACCOUNT_ID=...  R2_ACCESS_KEY_ID=...  R2_SECRET_ACCESS_KEY=...          # read-only R2 token
+    export STORAGE_ENDPOINT=...  STORAGE_REGION=...  STORAGE_ACCESS_KEY_ID=...  STORAGE_SECRET_ACCESS_KEY=...
+    export STORAGE_KEY=...                                    # the site's settings (quenya-voices README)
     python -m quenya_tts.gcore flavors                                  # GPU machines and prices in the region
     python -m quenya_tts.gcore train --ssh-key-name my-mac -o ~/quenya-runs --steps 20000 --max-hours 6
     python -m quenya_tts.gcore cleanup                                  # anything left? (--yes deletes it)
@@ -40,6 +41,9 @@ DEFAULT_MAX_HOURS = 6.0
 SETUP_MINUTES = 30
 WRAP_UP_MINUTES = 20
 API = "https://api.gcore.com"
+# What the machine needs to read and decrypt the recordings: the same settings as the site's server.
+STORAGE_SETTINGS = ("STORAGE_ENDPOINT", "STORAGE_REGION", "STORAGE_ACCESS_KEY_ID", "STORAGE_SECRET_ACCESS_KEY",
+                    "STORAGE_KEY")
 RUN_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cloud_run.sh")
 
 
@@ -196,9 +200,9 @@ def stay_awake():
 
 
 def train(args, client):
-    for name in ("R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"):
+    for name in STORAGE_SETTINGS:
         if not os.environ.get(name):
-            sys.exit(f"Set {name} (a read-only R2 token for the recordings bucket).")
+            sys.exit(f"Set {name} (the recording site's storage settings, see the quenya-voices README).")
     region = client.cloud.regions.get(client.cloud_region_id)
     if not in_eu(region.country):
         sys.exit(f"{region.display_name} ({region.country}) is outside the European Union: volunteer recordings "
@@ -233,12 +237,12 @@ def train(args, client):
             "BRANCH": args.branch, "STEPS": args.steps, "BATCH_SIZE": args.batch_size,
             "TRAIN_SECONDS": max(60, int(remaining - (SETUP_MINUTES + WRAP_UP_MINUTES) * 60)),
             "KEEP_CHECKPOINT": int(args.keep_checkpoint),
-            **{name: os.environ[name] for name in ("R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY")},
+            **{name: os.environ[name] for name in STORAGE_SETTINGS},
         }
         with open(RUN_SCRIPT, encoding="utf8") as f:
             script = run_input(f.read(), settings)
         try:
-            # the script arrives on stdin, so the R2 keys are never in a file or on a command line on the machine
+            # the script arrives on stdin, so the storage keys are never in a file or on a command line on the machine
             result = subprocess.run(ssh_command(args.user, machine.ip, known_hosts, "bash", "-s"), text=True,
                                     input=script, timeout=max(60, deadline - time.time() - WRAP_UP_MINUTES * 60 / 2))
             ok = result.returncode == 0
