@@ -77,9 +77,10 @@ python -m quenya_tts.read "Namárië" --model Models/ToucanTTS_Quenya/best.pt -o
 The public model is trained on a Gcore GPU machine in the EU, which `quenya_tts.gcore` creates for one run and deletes afterwards, with its disk and IP, whether training worked, failed or was stopped. The volunteer recordings go straight from the recording site's storage to that machine, so they are deleted with it and fetched again for every run: volunteers who asked for erasure are left out automatically. Only the release (artificial voice), logs and watermarked samples come back.
 
 ```
-pip install gcore
+pip install gcore boto3 cryptography
 export GCORE_API_KEY=...  GCORE_CLOUD_PROJECT_ID=...  GCORE_CLOUD_REGION_ID=...   # an EU region
-export R2_ACCOUNT_ID=...  R2_ACCESS_KEY_ID=...  R2_SECRET_ACCESS_KEY=...          # read-only R2 token
+export STORAGE_ENDPOINT=...  STORAGE_REGION=...  STORAGE_ACCESS_KEY_ID=...  STORAGE_SECRET_ACCESS_KEY=...  STORAGE_KEY=...
+                                                         # the recording site's storage settings
 python -m quenya_tts.gcore flavors                                                # GPU machines and prices
 python -m quenya_tts.gcore train --ssh-key-name my-mac -o ~/quenya-runs --max-hours 6
 python -m quenya_tts.gcore cleanup                                                # anything left behind?

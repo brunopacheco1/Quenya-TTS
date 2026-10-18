@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Runs one training on a fresh GPU machine: installs Quenya-TTS, fetches the accepted volunteer recordings from R2,
+# Runs one training on a fresh GPU machine: installs Quenya-TTS, fetches the accepted volunteer recordings from the site's storage,
 # trains, and writes the release (artificial voice, watermarked samples) to $RUN/out. quenya_tts.gcore sends it
-# over SSH, after exports for the variables below; the R2 keys therefore never touch the machine's disk. Everything
+# over SSH, after exports for the variables below; the storage keys therefore never touch the machine's disk. Everything
 # the run writes, recordings and checkpoints included, is deleted with the machine.
 #
 #   BRANCH          Quenya-TTS branch to train with
@@ -9,7 +9,7 @@
 #   BATCH_SIZE      training batch size
 #   TRAIN_SECONDS   stop training after this long, so the results can still be copied back before the time limit
 #   KEEP_CHECKPOINT 1 copies best.pt to out/private (it holds a volunteer's voice: keep it private)
-#   R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY
+#   STORAGE_ENDPOINT, STORAGE_REGION, STORAGE_ACCESS_KEY_ID, STORAGE_SECRET_ACCESS_KEY, STORAGE_KEY
 set -euo pipefail
 
 RUN="$HOME/run"
@@ -27,7 +27,7 @@ python3 -m venv "$RUN/tools" && "$RUN/tools/bin/pip" install -q uv
 "$RUN/tools/bin/uv" venv -q --seed --python 3.11 "$RUN/py311"
 cd "$REPO"
 grep -viE '^(pyqt5|pyqtgraph|pynput|PyAutoGUI|gradio)' requirements.txt > "$RUN/requirements.txt"
-"$RUN/tools/bin/uv" pip install -q --python "$PY" -r "$RUN/requirements.txt" "transformers>=4.46,<4.50" boto3 audioseal
+"$RUN/tools/bin/uv" pip install -q --python "$PY" -r "$RUN/requirements.txt" "transformers>=4.46,<4.50" boto3 cryptography audioseal
 "$PY" -c "import torch; assert torch.cuda.is_available(), 'no GPU'; print(torch.__version__, torch.cuda.get_device_name(0))"
 
 echo "== Fetching the accepted recordings"

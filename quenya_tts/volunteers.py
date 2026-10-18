@@ -2,11 +2,13 @@
 Connects the volunteer recording site (https://github.com/brunopacheco1/quenya-voices) with training: downloads the accepted recordings, and
 uploads the reference readings that the site's Listen button plays.
 
-The site keeps everything in a Cloudflare R2 bucket (see the quenya-voices README). This script reads it through
-R2's S3-compatible API, with an API token you create in the Cloudflare dashboard (R2 > Manage API tokens):
+The site keeps everything in Gcore object storage in Luxembourg, encrypted object by object with the site's key
+(see the quenya-voices README). This script reads it through the S3 API and decrypts it, with the same settings
+as the site (/etc/quenya-voices.env on its server):
 
-    export R2_ACCOUNT_ID=...  R2_ACCESS_KEY_ID=...  R2_SECRET_ACCESS_KEY=...
-    pip install boto3
+    export STORAGE_ENDPOINT=https://luxembourg-2.storage.gcore.dev  STORAGE_REGION=s-ed1
+    export STORAGE_ACCESS_KEY_ID=...  STORAGE_SECRET_ACCESS_KEY=...  STORAGE_KEY=...
+    pip install boto3 cryptography
 
 Download what reviewers accepted (only the lines they marked good), then build the corpus:
 
@@ -28,6 +30,7 @@ Upload reference readings for Listen (needs the reader's requirements):
 """
 
 import argparse
+import base64
 import csv
 import datetime
 import json
@@ -40,32 +43,56 @@ SITE = {"minimum_training_minutes": 60, "training_wait_days": 30}
 SCRIPT_TSV = os.path.join(os.path.dirname(__file__), "..", "recording", "script.tsv")
 
 
-class Bucket:
-    """The few R2 operations this script needs, over the S3 API."""
+# The site's encryption (quenya-voices src/storage.js): "QVE1", a 12-byte IV, then AES-256-GCM ciphertext and tag.
+# Metadata is sealed the same way into the object's one metadata value, "sealed" (base64).
+MAGIC = b"QVE1"
+OVERHEAD = len(MAGIC) + 12 + 16
 
-    def __init__(self, name, client):
-        self.name, self.client = name, client
+
+def seal(key, data):
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    iv = os.urandom(12)
+    return MAGIC + iv + AESGCM(key).encrypt(iv, data, None)
+
+
+def unseal(key, data):
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    if not data.startswith(MAGIC) or len(data) < OVERHEAD:
+        raise ValueError("not an object encrypted by the site")
+    return AESGCM(key).decrypt(data[4:16], data[16:], None)
+
+
+def storage_key(text):
+    key = base64.b64decode(text or "")
+    if len(key) != 32:
+        raise ValueError("STORAGE_KEY must be the site's 32-byte key, base64-encoded")
+    return key
+
+
+class Bucket:
+    """The few storage operations this script needs, over the S3 API, decrypting and encrypting like the site."""
+
+    def __init__(self, name, client, key):
+        self.name, self.client, self.key = name, client, key
 
     @classmethod
     def from_environment(cls, name):
         import boto3
-        account = os.environ["R2_ACCOUNT_ID"]
-        jurisdiction = os.environ.get("R2_JURISDICTION", "eu")
-        host = f"{account}.{jurisdiction}.r2.cloudflarestorage.com" if jurisdiction else f"{account}.r2.cloudflarestorage.com"
-        client = boto3.client("s3", endpoint_url=f"https://{host}", region_name="auto",
-                              aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
-                              aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"])
-        return cls(name, client)
+        client = boto3.client("s3", endpoint_url=os.environ["STORAGE_ENDPOINT"],
+                              region_name=os.environ["STORAGE_REGION"],
+                              aws_access_key_id=os.environ["STORAGE_ACCESS_KEY_ID"],
+                              aws_secret_access_key=os.environ["STORAGE_SECRET_ACCESS_KEY"])
+        return cls(name, client, storage_key(os.environ.get("STORAGE_KEY")))
 
     def keys(self, prefix):
-        """Returns [(key, size)] under prefix."""
+        """Returns [(key, size)] under prefix; sizes are those of the decrypted objects."""
         found = []
         for page in self.client.get_paginator("list_objects_v2").paginate(Bucket=self.name, Prefix=prefix):
-            found.extend((item["Key"], item["Size"]) for item in page.get("Contents", []))
+            found.extend((item["Key"], item["Size"] - OVERHEAD) for item in page.get("Contents", []))
         return found
 
     def read(self, key):
-        return self.client.get_object(Bucket=self.name, Key=key)["Body"].read()
+        return unseal(self.key, self.client.get_object(Bucket=self.name, Key=key)["Body"].read())
 
     def read_json(self, key):
         try:
@@ -73,8 +100,14 @@ class Bucket:
         except self.client.exceptions.NoSuchKey:
             return None
 
+    def metadata(self, key):
+        sealed = self.client.head_object(Bucket=self.name, Key=key).get("Metadata", {}).get("sealed")
+        return json.loads(unseal(self.key, base64.b64decode(sealed))) if sealed else {}
+
     def write(self, key, data, content_type):
-        self.client.put_object(Bucket=self.name, Key=key, Body=data, ContentType=content_type)
+        sealed = base64.b64encode(seal(self.key, b"{}")).decode()
+        self.client.put_object(Bucket=self.name, Key=key, Body=seal(self.key, data),
+                               ContentType="application/octet-stream", Metadata={"sealed": sealed})
 
 
 def parse_time(text):
@@ -86,8 +119,7 @@ def accepted_seconds(bucket):
     totals = {}
     for key, _ in bucket.keys("accepted/"):
         volunteer = key.split("/")[1]
-        head = bucket.client.head_object(Bucket=bucket.name, Key=key)
-        totals[volunteer] = totals.get(volunteer, 0.0) + float(head.get("Metadata", {}).get("seconds", 0))
+        totals[volunteer] = totals.get(volunteer, 0.0) + float(bucket.metadata(key).get("seconds", 0))
     return totals
 
 
@@ -199,7 +231,7 @@ def references(args):
 
 def main():
     parser = argparse.ArgumentParser(description="Download accepted volunteer recordings, or upload reference readings.")
-    parser.add_argument("--bucket", default=os.environ.get("R2_BUCKET", "quenya-recordings"))
+    parser.add_argument("--bucket", default=os.environ.get("STORAGE_BUCKET", "quenya-recordings"))
     commands = parser.add_subparsers(dest="command", required=True)
     get = commands.add_parser("download", help="download the accepted recordings")
     get.add_argument("-o", "--output", required=True, help="download folder, kept between runs")

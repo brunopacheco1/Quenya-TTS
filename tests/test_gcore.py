@@ -73,9 +73,9 @@ class ScriptsTest(unittest.TestCase):
         self.assertIn("shutdown -P +390 ", gcore.boot_script(6.5))
 
     def test_settings_are_quoted(self):
-        text = gcore.run_input("echo run\n", {"R2_SECRET_ACCESS_KEY": "a'b; rm -rf /", "STEPS": 10})
+        text = gcore.run_input("echo run\n", {"STORAGE_SECRET_ACCESS_KEY": "a'b; rm -rf /", "STEPS": 10})
         self.assertIn("export STEPS=10\n", text)
-        self.assertIn("export R2_SECRET_ACCESS_KEY='a'\"'\"'b; rm -rf /'\n", text)
+        self.assertIn("export STORAGE_SECRET_ACCESS_KEY='a'\"'\"'b; rm -rf /'\n", text)
         self.assertTrue(text.endswith("run() {\necho run\n\n}\nrun < /dev/null\n"))
 
     def test_watchdog_deletes_the_machine_with_its_disk_and_ip(self):
