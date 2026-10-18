@@ -8,6 +8,7 @@ Quenya borrows the Finnish language embedding, because the pretrained model has 
 
 import os
 import sys
+import warnings
 
 REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOUCAN_DIR = os.environ.get("TOUCAN_DIR", os.path.join(REPO_DIR, "toucan"))
@@ -28,6 +29,9 @@ def setup_toucan(change_dir=False):
     """
     if not os.path.exists(os.path.join(TOUCAN_DIR, "Preprocessing", "TextFrontend.py")):
         sys.exit(f"IMS-Toucan not found in {TOUCAN_DIR}. Run: git submodule update --init")
+    # Toucan and the torch version it pins trigger deprecation notices (torch.load weights_only, weight_norm)
+    # on every model load; they are about future torch releases, not about anything going wrong here
+    warnings.filterwarnings("ignore", category=FutureWarning)
     if TOUCAN_DIR not in sys.path:
         sys.path.insert(0, TOUCAN_DIR)
     import Utility.storage_config as storage_config
