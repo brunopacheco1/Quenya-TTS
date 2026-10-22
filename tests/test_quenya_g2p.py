@@ -93,7 +93,8 @@ class SoundTest(unittest.TestCase):
             "Ainulindalë": "ainulˈindalɛ",
             "leuca": "lˈɛuka",
             "tuilë": "tˈuilɛ",
-            "tiuca": "tjˈuka",   # iu is a rising diphthong in the Third Age
+            "tiuca": "tjˈuːka",  # iu is a rising diphthong in the Third Age, long like yule
+            "kiuka": "kjˈuːka",  # Tolkien's own [kyūka], PE19 p. 107: k not fronted before this y
         })
 
     def test_h_combinations(self):
@@ -105,6 +106,7 @@ class SoundTest(unittest.TestCase):
             "ohtar":   "ˈɔxtar",
             "tehtar":  "tˈɛçtar",
             "ehtyar":  "ˈɛçcar",    # also before ty
+            "ahtya":   "ˈaçca",     # before ty the h is fronted after any vowel (PE19 p. 84; made-up word)
             "mahalma": "mahˈalma",  # plain h between vowels
         })
 
