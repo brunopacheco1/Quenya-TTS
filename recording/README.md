@@ -34,7 +34,9 @@ the book gets new chapters), see [build_script.py](build_script.py).
 - Read the way you would speak it in the book: calm, clear, conversational. Not chanting, not acting.
 - Pronounce it as Third Age Quenya (Appendix E): stress on the first syllable of two-syllable words; in longer
   words on the second-to-last if it is long (long vowel, diphthong, or two consonants after it), otherwise on
-  the third-to-last; long vowels long, double consonants long, *r* trilled. If unsure, press `l` in the
+  the third-to-last; long vowels long, double consonants long, *r* trilled, and unstressed vowels kept clear
+  with their full sound (Tolkien: in Quenya "the quality of unstressed vowels is clear and not obscured", so no
+  reduced vowels as in English or Portuguese). If unsure, press `l` in the
   recorder to hear the line, or run `python -m quenya_tts.read "word" --play` (add `--phonemes` to only see the sounds). The TTS voice follows the
   same rules for stress, length and sounds, but it is not trained on Quenya yet: copy what it pronounces, not
   how its voice sounds.
