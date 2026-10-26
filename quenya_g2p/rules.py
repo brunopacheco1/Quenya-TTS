@@ -38,13 +38,23 @@ Sindarin th is [θ], so they should not be used to judge the output.
   ng are [n] (Third Age: Ñoldor, ngwalmë are said Noldor, nwalmë; PE19
   pp. 76-77: the Exiles' everyday pronunciation and spelling had n, and ñ
   survived as a loremasters' reading pronunciation).
-- w is read as written, [w] (Appendix E: "W has the sound of English w"),
-  except at the start of a word, where it is [v] (the Third Age change of
-  wilya to vilya); medially (Elwë, Aiwendil, ngw) it stays [w]. PE19 p. 72
-  makes w > v a Tarquesta change "where it stood initially or remained between
-  vowels", with w kept after s, n, r, l and after ai, oi; Third Age spelling
-  already writes v between vowels, so reading medial w as written gives the
-  same result.
+- w is [v] at the start of a word (Appendix E: vilya, "older wilya") and
+  between vowels (awa, tawar -> ava, tavar); it stays [w] after a consonant
+  (Elwë, nwalmë, hw, qu, ngw) and after the diphthongs ai, oi (Aiwendil,
+  aiwë). This is the Third Age (Exilic, Tarquesta) change of w to v as
+  Tolkien states it three times: PE17 p. 129 (Exilic Quenya outline,
+  1964-65), among the principal Exilic changes, "the change of w to v
+  (except in nw, tw, hw, kw, ngw)"; PE17 p. 76 (on Namárië, 1966), "w > v
+  (ve, as, like) except after consonants"; PE19 p. 72 (Outline of Phonology,
+  c. 1951), w became v "where it stood initially or remained between
+  vowels", while "after s (z), n, r, l, and the diphthongs ai, oi however w
+  remained as such"; also PE17 p. 154 ("Q b-, w- > v-"), PE17 p. 130 (the
+  pronoun we merged with ve by this change) and PE22 p. 44 (1940s: v and w
+  merged except after a consonant). Appendix E gives only the initial case
+  because Third Age spelling already writes v between vowels (ve, avánier,
+  Valimar), so the rule changes no attested Third Age word; it matters for
+  Tolkien's older spellings with w (awa, wanwa in PE17) and for learner
+  input. Intervocalic w was read as written until 2026-10-26.
 - Double consonants are written as two phones (ll -> ll).
 
 Stress: words of two syllables are stressed on the first. Longer words are
@@ -98,10 +108,13 @@ nd as mm and nn in colloquial speech (pp. 85, 86, 92, 99); medial sy as
 (as in English)" (p. 87) and r is "lightly trilled" (pp. 70, 83, 99), which the
 phone set cannot express and the voice must supply.
 
-Sources: The Lord of the Rings, Appendix E; Parma Eldalamberon 19 (Quenya
-Phonology: Outline of Phonetic Development, 1937-38, and Outline of
-Phonology, c. 1951), 22 and 23; The Road Goes Ever On; Eldamo
-(https://eldamo.org/).
+Sources: The Lord of the Rings, Appendix E; Parma Eldalamberon 17 (Words,
+Phrases and Passages in The Lord of the Rings, 1950s-60s: Namárië notes
+p. 76, Exilic Quenya outline pp. 127-132, Eldarin Roots and Stems p. 154);
+Parma Eldalamberon 19 (Quenya Phonology: Outline of Phonetic Development,
+1937-38, and Outline of Phonology, c. 1951), 22 and 23; The Road Goes Ever
+On; Eldamo (https://eldamo.org/). Page numbers are the journal's printed
+pages.
 
 Text handling: words are stressed independently; the article i and the
 particles ar, ve, mi are left unstressed. Compounds joined by a hyphen or a
@@ -199,6 +212,18 @@ def _tokenize_word(word):
     return segments
 
 
+# Diphthongs after which w stays [w] (PE19 p. 72: "after s (z), n, r, l, and
+# the diphthongs ai, oi however w remained as such"), as IPA vowel phones.
+_W_KEEPING_DIPHTHONGS = {DIPHTHONGS['ai'], DIPHTHONGS['oi']}
+
+
+def _between_vowels(previous, following):
+    """True when a consonant stands between two vowels, the first not ai/oi."""
+    return (previous is not None and following is not None
+            and previous[0] == 'V' and following[0] == 'V'
+            and previous[1] not in _W_KEEPING_DIPHTHONGS)
+
+
 def _apply_context_rules(segments):
     """
     Rules that depend on neighbouring segments: ht, nasal assimilation,
@@ -219,7 +244,11 @@ def _apply_context_rules(segments):
                 phones = 'ŋ'
             elif phones in ('ŋ', 'ŋɡ') and previous is None:
                 phones = 'n'
-            elif phones == 'w' and previous is None:
+            elif phones == 'w' and (previous is None or _between_vowels(previous, following)):
+                # Third Age w > v initially and between vowels, kept after
+                # consonants and after ai, oi: PE17 pp. 76, 129, 154; PE19
+                # p. 72; PE22 p. 44; Appendix E (vilya, older wilya). See
+                # the module docstring.
                 phones = 'v'
         result.append((kind, phones, weight))
     return result

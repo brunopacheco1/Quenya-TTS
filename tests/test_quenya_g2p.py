@@ -122,9 +122,13 @@ class SoundTest(unittest.TestCase):
     def test_palatals_and_w(self):
         self.check({
             "tyelpë":   "cˈɛlpɛ",
-            "Elwë":     "ˈɛlwɛ",
-            "Aiwendil": "aiwˈɛndil",  # medial w is read as written
+            "Elwë":     "ˈɛlwɛ",      # w stays after a consonant (PE17 p. 129)
+            "Aiwendil": "aiwˈɛndil",  # and after ai, oi (PE19 p. 72)
+            "aiwë":     "ˈaiwɛ",
             "wingë":    "vˈiŋɡɛ",     # initial w is v in the Third Age
+            "awa":      "ˈava",       # and so is w between vowels (PE17 pp. 76, 129; PE19 p. 72)
+            "tawar":    "tˈavar",     # older spelling of tavar
+            "wanwa":    "vˈanwa",     # initial v, nw kept
         })
 
     def test_th_x_q_and_z(self):
@@ -186,7 +190,7 @@ class SentenceTest(unittest.TestCase):
         known |= {"ː", "ˈ", ",", ";", ":"}
         text = ("Ai! laurië lantar lassi súrinen, yéni únótimë ve rámar aldaron! "
                 "hwesta hyarmen hlócë hrívë hróa tehtar ohtar ehtyar ingor enquë Ñoldor ngwalmë "
-                "tyelpë Elwë Aiwendil wingë þúlë Helcaraxë tiuca Qenya áze Calacirya Hyarmendacil")
+                "tyelpë Elwë Aiwendil aiwë wingë awa tawar wanwa þúlë Helcaraxë tiuca Qenya áze Calacirya Hyarmendacil")
         self.assertEqual(set(process_complete_sentence(text)) - known, set())
 
 
