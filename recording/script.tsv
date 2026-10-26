@@ -1,15 +1,15 @@
 id	text	source	gloss
 s01_001	Alla!	book:1/1.1	
 s01_002	Á na márië!	book:1/1.1	
-s01_003	Aiya!	book:1/1.1	
+s01_003	Elen síla lúmenn' omentielvo!	book:1/1.1	
 s01_004	Namárië!	book:1/1.1	
 s01_005	Alla, Nerdanel!	book:1/1.2	
 s01_006	Alla, Elenwë! Manen nalyë?	book:1/1.2	
 s01_007	Mára, hantanyel. Ar elyë?	book:1/1.2	
 s01_008	Mára.	book:1/1.2	
 s01_009	Á na márië, Nerdanel!	book:1/1.2	
-s01_010	Aiya, Rúmil! Elen síla lúmenn' omentielvo.	book:1/1.3	
-s01_011	Aiya, Elendil! Elen síla lúmenn' omentielvo. Manen nalyë?	book:1/1.3	
+s01_010	Alla, Rúmil! Elen síla lúmenn' omentielvo.	book:1/1.3	
+s01_011	Alla, Elendil! Elen síla lúmenn' omentielvo. Manen nalyë?	book:1/1.3	
 s01_012	Mára. Namárië, Elendil!	book:1/1.3	
 s01_013	amaurë	book:1/1.4	
 s01_014	aurë	book:1/1.4	
@@ -31,8 +31,8 @@ s01_029	Mára sinyë, Rúmil! Manen nalyë?	book:1/1.5
 s01_030	Mára, hantanyel.	book:1/1.5	
 s01_031	Mára lómë, Voronwë!	book:1/1.5	
 s01_032	Mára lómë, Elendil! Namárië!	book:1/1.5	
-s01_033	Aiya! Essenya ná Rúmil. Nanyë istyar. Mana esselya?	book:1/1.6	
-s01_034	Aiya, Rúmil! Essenya ná Elenwë.	book:1/1.6	
+s01_033	Alla! Essenya ná Rúmil. Nanyë istyar. Mana esselya?	book:1/1.6	
+s01_034	Alla, Rúmil! Essenya ná Elenwë.	book:1/1.6	
 s01_035	Essenya ná Voronwë.	book:1/1.6	
 s01_036	Ar elyë?	book:1/1.6	
 s01_037	Essenya ná Nerdanel.	book:1/1.6	
